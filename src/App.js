@@ -200,7 +200,7 @@ function App() {
           {/* Protected Admin Routes */}
 
           <Route path="/admin/dashboard" element={
-            <AdminRoute title="Add Product">
+            <AdminRoute >
               <Dashboard />
             </AdminRoute>
            
