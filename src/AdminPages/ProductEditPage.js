@@ -13,10 +13,15 @@ import {
   TagIcon,
   ArchiveBoxIcon,
   InformationCircleIcon,
+  FireIcon,
+  CalendarIcon,
 } from '@heroicons/react/24/outline';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { getProductById, updateProduct } from '../Apis/productApi';
+import AdminSidebar from '../Components/AdminComponents/adminSidebar';
+import AdminLayout from '../Components/AdminComponents/adminLayout';
+
 
 const ProductEditPage = () => {
   const { id } = useParams();
@@ -30,12 +35,19 @@ const ProductEditPage = () => {
     countInStock: '0',
     isAvailable: true,
     description: '',
+    nutritionalInfo: '',
+    storageTips: '',
+    shelfLifeDays: '',
+    tags: '',
+    seasonality: [],
   });
+  
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [slugPreview, setSlugPreview] = useState('');
+  const [seasonInput, setSeasonInput] = useState('');
 
   const categories = [
     { value: 'vegetable', label: 'Vegetable' },
@@ -56,6 +68,11 @@ const ProductEditPage = () => {
     { value: 'pack', label: 'Pack' },
     { value: 'basket', label: 'Basket' },
     { value: 'olonka', label: 'Olonka' },
+  ];
+
+  const seasons = [
+    'Spring', 'Summer', 'Autumn', 'Winter',
+    'Rainy Season', 'Dry Season', 'Year-round'
   ];
 
   useEffect(() => {
@@ -80,23 +97,34 @@ const ProductEditPage = () => {
     setLoading(true);
     try {
       const response = await getProductById(id);
-      const product = response.data;
+      
+      // Updated: Access the nested data property
+      if (response.data.success && response.data.data) {
+        const product = response.data.data;
 
-      setFormData({
-        name: product.name || '',
-        category: product.category || '',
-        price: product.price?.toString() || '',
-        unit: product.unit || '',
-        countInStock: product.countInStock?.toString() || '0',
-        isAvailable: product.isAvailable ?? true,
-        description: product.description || '',
-      });
+        setFormData({
+          name: product.name || '',
+          category: product.category || '',
+          price: product.price?.toString() || '',
+          unit: product.unit || '',
+          countInStock: product.countInStock?.toString() || '0',
+          isAvailable: product.isAvailable ?? true,
+          description: product.description || '',
+          nutritionalInfo: product.nutritionalInfo || '',
+          storageTips: product.storageTips || '',
+          shelfLifeDays: product.shelfLifeDays?.toString() || '7',
+          tags: Array.isArray(product.tags) ? product.tags.join(', ') : '',
+          seasonality: Array.isArray(product.seasonality) ? product.seasonality : [],
+        });
 
-      setImagePreview(product.image || '');
-      setSlugPreview(product.slug || '');
+        setImagePreview(product.image || '');
+        setSlugPreview(product.slug || '');
+      } else {
+        throw new Error('Invalid response structure');
+      }
     } catch (error) {
-      toast.error('Failed to load product');
-      navigate('/admin/products');
+      toast.error(error.response?.data?.message || 'Failed to load product');
+      navigate('/admin-products');
     } finally {
       setLoading(false);
     }
@@ -107,6 +135,33 @@ const ProductEditPage = () => {
     setFormData((prev) => ({
       ...prev,
       [name]: type === 'checkbox' ? checked : value,
+    }));
+  };
+
+  const handleSeasonalityChange = (season) => {
+    setFormData((prev) => {
+      const newSeasonality = prev.seasonality.includes(season)
+        ? prev.seasonality.filter(s => s !== season)
+        : [...prev.seasonality, season];
+      return { ...prev, seasonality: newSeasonality };
+    });
+  };
+
+  const addCustomSeason = () => {
+    if (seasonInput.trim() && !formData.seasonality.includes(seasonInput.trim())) {
+      setFormData((prev) => ({
+        ...prev,
+        seasonality: [...prev.seasonality, seasonInput.trim()]
+      }));
+      setSeasonInput('');
+      toast.success('Custom season added');
+    }
+  };
+
+  const removeSeason = (seasonToRemove) => {
+    setFormData((prev) => ({
+      ...prev,
+      seasonality: prev.seasonality.filter(season => season !== seasonToRemove)
     }));
   };
 
@@ -135,6 +190,7 @@ const ProductEditPage = () => {
     if (!formData.price || parseFloat(formData.price) <= 0) return toast.error('Enter a valid price');
     if (!formData.unit) return toast.error('Please select a unit');
     if (parseInt(formData.countInStock) < 0) return toast.error('Stock cannot be negative');
+    if (formData.shelfLifeDays && parseInt(formData.shelfLifeDays) <= 0) return toast.error('Shelf life must be positive');
     return true;
   };
 
@@ -150,6 +206,19 @@ const ProductEditPage = () => {
     submitData.append('countInStock', parseInt(formData.countInStock));
     submitData.append('isAvailable', formData.isAvailable);
     submitData.append('description', formData.description || '');
+    submitData.append('nutritionalInfo', formData.nutritionalInfo || '');
+    submitData.append('storageTips', formData.storageTips || '');
+    submitData.append('shelfLifeDays', parseInt(formData.shelfLifeDays) || 7);
+    
+    // Process tags
+    const tagsArray = formData.tags
+      .split(',')
+      .map(tag => tag.trim())
+      .filter(tag => tag.length > 0);
+    submitData.append('tags', JSON.stringify(tagsArray));
+    
+    // Process seasonality
+    submitData.append('seasonality', JSON.stringify(formData.seasonality));
 
     if (imageFile) submitData.append('productImage', imageFile);
 
@@ -168,6 +237,7 @@ const ProductEditPage = () => {
   const resetForm = () => {
     fetchProductData();
     setImageFile(null);
+    setSeasonInput('');
     toast.info('Form reset to original values');
   };
 
@@ -183,6 +253,7 @@ const ProductEditPage = () => {
   }
 
   return (
+    <AdminLayout>
     <>
       <ToastContainer position="top-right" autoClose={3000} theme="light" />
 
@@ -190,12 +261,12 @@ const ProductEditPage = () => {
         {/* Sticky Header */}
         <div className="bg-white border-b border-gray-200 sticky top-0 z-10 shadow-sm">
           <div className="max-w-6xl mx-auto px-6 py-5 flex items-center gap-4">
-            <Link
+           {/* <Link
               to={`/admin-product/${id}`}
               className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
             >
               <ArrowLeftIcon className="h-6 w-6 text-gray-600" />
-            </Link>
+            </Link>*/}
             <div>
               <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
                 <PencilIcon className="h-7 w-7 text-blue-600" />
@@ -272,16 +343,153 @@ const ProductEditPage = () => {
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Description (Optional)
+                        Description
                       </label>
                       <textarea
                         name="description"
                         value={formData.description}
                         onChange={handleInputChange}
-                        rows={4}
+                        rows={3}
                         className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none resize-none"
                         placeholder="Describe quality, origin, usage tips..."
                       />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Nutritional Information
+                      </label>
+                      <textarea
+                        name="nutritionalInfo"
+                        value={formData.nutritionalInfo}
+                        onChange={handleInputChange}
+                        rows={2}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none resize-none"
+                        placeholder="e.g. Rich in Vitamin C, fiber, antioxidants..."
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Storage & Seasonality */}
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
+                  <h2 className="text-xl font-semibold text-gray-900 mb-6 flex items-center gap-3">
+                    <ArchiveBoxIcon className="h-6 w-6 text-gray-700" />
+                    Storage & Seasonality
+                  </h2>
+
+                  <div className="space-y-6">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Storage Tips
+                      </label>
+                      <textarea
+                        name="storageTips"
+                        value={formData.storageTips}
+                        onChange={handleInputChange}
+                        rows={2}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none resize-none"
+                        placeholder="e.g. Store in cool dry place, refrigerate after opening..."
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Shelf Life (Days)
+                        </label>
+                        <input
+                          type="number"
+                          name="shelfLifeDays"
+                          value={formData.shelfLifeDays}
+                          onChange={handleInputChange}
+                          min="1"
+                          className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                          placeholder="7"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Tags
+                        </label>
+                        <input
+                          type="text"
+                          name="tags"
+                          value={formData.tags}
+                          onChange={handleInputChange}
+                          className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                          placeholder="organic, fresh, local (comma separated)"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Seasonality */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
+                        <CalendarIcon className="h-5 w-5" />
+                        Seasonality
+                      </label>
+                      <div className="flex flex-wrap gap-2 mb-4">
+                        {seasons.map((season) => (
+                          <button
+                            key={season}
+                            type="button"
+                            onClick={() => handleSeasonalityChange(season)}
+                            className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                              formData.seasonality.includes(season)
+                                ? 'bg-orange-100 text-orange-700 border border-orange-300'
+                                : 'bg-gray-100 text-gray-700 border border-gray-300 hover:bg-gray-200'
+                            }`}
+                          >
+                            {season}
+                            {formData.seasonality.includes(season) && ' ✓'}
+                          </button>
+                        ))}
+                      </div>
+                      
+                      {/* Custom Season Input */}
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={seasonInput}
+                          onChange={(e) => setSeasonInput(e.target.value)}
+                          onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addCustomSeason())}
+                          className="flex-1 px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
+                          placeholder="Add custom season (press Enter)"
+                        />
+                        <button
+                          type="button"
+                          onClick={addCustomSeason}
+                          className="px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors text-sm font-medium"
+                        >
+                          Add
+                        </button>
+                      </div>
+                      
+                      {/* Selected Seasons */}
+                      {formData.seasonality.length > 0 && (
+                        <div className="mt-4">
+                          <p className="text-sm font-medium text-gray-700 mb-2">Selected Seasons:</p>
+                          <div className="flex flex-wrap gap-2">
+                            {formData.seasonality.map((season) => (
+                              <span
+                                key={season}
+                                className="inline-flex items-center gap-2 px-3 py-1.5 bg-orange-50 text-orange-700 rounded-full text-sm"
+                              >
+                                {season}
+                                <button
+                                  type="button"
+                                  onClick={() => removeSeason(season)}
+                                  className="text-orange-500 hover:text-orange-700"
+                                >
+                                  <XMarkIcon className="h-4 w-4" />
+                                </button>
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -416,6 +624,12 @@ const ProductEditPage = () => {
                       </span>
                     </div>
                     <div className="flex justify-between">
+                      <span className="text-gray-600">Category</span>
+                      <span className="font-medium text-gray-900">
+                        {categories.find(c => c.value === formData.category)?.label || '—'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
                       <span className="text-gray-600">Price</span>
                       <span className="font-medium text-gray-900">
                         {formData.price ? `₵${parseFloat(formData.price).toFixed(2)}` : '—'}
@@ -434,12 +648,61 @@ const ProductEditPage = () => {
                       </span>
                     </div>
                     <div className="flex justify-between">
+                      <span className="text-gray-600">Seasons</span>
+                      <span className="font-medium text-gray-900">
+                        {formData.seasonality.length > 0 
+                          ? `${formData.seasonality.length} selected`
+                          : '—'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
                       <span className="text-gray-600">Status</span>
                       <span className={`font-medium ${formData.isAvailable ? 'text-green-600' : 'text-red-600'}`}>
                         {formData.isAvailable ? 'Available' : 'Hidden'}
                       </span>
                     </div>
                   </div>
+                  
+                  {/* Seasonality Preview */}
+                  {formData.seasonality.length > 0 && (
+                    <div className="mt-6 pt-6 border-t border-gray-200">
+                      <p className="text-sm font-medium text-gray-700 mb-2">Selected Seasons:</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {formData.seasonality.slice(0, 3).map((season) => (
+                          <span
+                            key={season}
+                            className="px-2 py-1 bg-orange-50 text-orange-600 text-xs rounded-full"
+                          >
+                            {season}
+                          </span>
+                        ))}
+                        {formData.seasonality.length > 3 && (
+                          <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full">
+                            +{formData.seasonality.length - 3} more
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Tags Preview */}
+                  {formData.tags && formData.tags.trim() && (
+                    <div className="mt-6 pt-6 border-t border-gray-200">
+                      <p className="text-sm font-medium text-gray-700 mb-2">Tags:</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {formData.tags.split(',').slice(0, 4).map((tag, index) => (
+                          tag.trim() && (
+                            <span
+                              key={index}
+                              className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full"
+                            >
+                              {tag.trim()}
+                            </span>
+                          )
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Actions */}
@@ -486,6 +749,10 @@ const ProductEditPage = () => {
                       <ArchiveBoxIcon className="h-4 w-4" />
                       Images uploaded to Cloudinary
                     </p>
+                    <p className="flex items-center gap-2">
+                      <FireIcon className="h-4 w-4" />
+                      Seasonality affects product visibility
+                    </p>
                   </div>
                 </div>
               </div>
@@ -494,6 +761,7 @@ const ProductEditPage = () => {
         </div>
       </div>
     </>
+    </AdminLayout>
   );
 };
 

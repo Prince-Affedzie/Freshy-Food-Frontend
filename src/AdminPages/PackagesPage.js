@@ -24,6 +24,8 @@ import {
   togglePackageStatus,
   updatePackage,
 } from '../Apis/packageApi';
+import AdminSidebar from '../Components/AdminComponents/adminSidebar';
+
 
 const PackagesAdminPage = () => {
   const navigate = useNavigate();

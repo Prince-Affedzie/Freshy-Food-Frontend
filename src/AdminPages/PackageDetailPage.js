@@ -21,6 +21,8 @@ import {
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { getPackageById, deletePackage, togglePackageStatus } from '../Apis/packageApi';
+import AdminSidebar from '../Components/AdminComponents/adminSidebar';
+
 
 const PackageDetailPage = () => {
   const { id } = useParams();

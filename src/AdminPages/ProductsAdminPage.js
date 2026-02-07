@@ -20,6 +20,8 @@ import {
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { getAllProducts } from '../Apis/productApi';
+import AdminLayout from '../Components/AdminComponents/adminLayout';
+
 
 const ProductsAdminPage = () => {
   const navigate = useNavigate();
@@ -130,7 +132,10 @@ const ProductsAdminPage = () => {
   };
 
   return (
+    
     <div className="min-h-screen bg-gray-50">
+      <AdminLayout title="Products Management">
+      
       <ToastContainer position="top-right" autoClose={3000} theme="light" />
 
       {/* Header */}
@@ -380,7 +385,9 @@ const ProductsAdminPage = () => {
           </div>
         )}
       </div>
+      </AdminLayout>
     </div>
+    
   );
 };
 

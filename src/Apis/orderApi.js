@@ -245,3 +245,14 @@ export const trackOrderDelivery = async (trackingNumber) => {
     throw error;
   }
 };
+
+
+
+export const AdminGetOrderById = async (id) => {
+  try {
+    const response = await API.get(`/api/admin/order/${id}`);
+    return response;
+  } catch (error) {
+    throw error;
+  }
+};

@@ -19,6 +19,8 @@ import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { getPackageById, updatePackage } from '../Apis/packageApi';
 import { searchProducts } from '../Apis/productApi';
+import AdminSidebar from '../Components/AdminComponents/adminSidebar';
+
 
 const PackageEditPage = () => {
   const { id } = useParams();

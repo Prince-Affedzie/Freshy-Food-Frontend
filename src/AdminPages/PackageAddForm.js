@@ -26,6 +26,8 @@ import { Camera, Plus, Trash2, Search, ShoppingBasket } from 'lucide-react';
 import { styled } from '@mui/material/styles';
 import {createPackage} from '../Apis/packageApi'; // Your API instance
 import {searchProducts} from '../Apis/productApi'
+import AdminSidebar from '../Components/AdminComponents/adminSidebar';
+
 
 // Styled components
 const VisuallyHiddenInput = styled('input')({

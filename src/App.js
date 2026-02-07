@@ -24,6 +24,14 @@ import PackageEditPage from './AdminPages/PackageEditPage'
 import ProductsAdminPage from './AdminPages/ProductsAdminPage'
 import ProductEditPage from './AdminPages/ProductEditPage'
 import ProductDetailPage from './AdminPages/ProductDetailPage'
+import AdminOrdersPage from './AdminPages/Orders'
+import AdminOrderDetailPage from './AdminPages/OrderDetails'
+import PendingOrdersPage from './AdminPages/PendingOrders'
+import CompletedOrdersPage from './AdminPages/CompletedOrders';
+import UserManagement from './AdminPages/UserManagement'
+import UserDetailPage from './AdminPages/UserDetail'
+import UserEditPage from './AdminPages/UserEdit'
+
 import './styles.css';
 
 function App() {
@@ -43,7 +51,7 @@ function App() {
       <ScrollToTop />
       <div className="App">
          <ToastContainer position="top-right" autoClose={3000} />
-        <Header basket={basket} />
+        {/*<Header basket={basket} />*/}
         <main>
           <Routes>
             <Route path="/" element={<HomePage />} />
@@ -60,7 +68,7 @@ function App() {
             <Route path="/order-success" element={<OrderSuccess />} />
 
 
-            <Route path="/add-product" element={<ProductAddForm />} />
+            <Route path="/admin/add-product" element={<ProductAddForm />} />
             <Route path="/add-package" element={<PackageAddForm />} />
             <Route path="/admin-packages" element={<PackagesAdminPage />} />
             <Route path="/admin-package/:id" element={<PackageDetailPage />} />
@@ -68,6 +76,13 @@ function App() {
             <Route path="/admin-products" element={<ProductsAdminPage />} />
             <Route path="/admin-product/edit/:id" element={<ProductEditPage />} />
             <Route path="/admin-product/:id" element={< ProductDetailPage />} />
+            <Route path="/admin/orders" element={<AdminOrdersPage/>} />
+            <Route path="/admin/orders/pendingorders" element={<PendingOrdersPage/>} />
+             <Route path="/admin/orders/delivered" element={<CompletedOrdersPage/>} />
+            <Route path="/admin/order/:id" element={<AdminOrderDetailPage/>} />
+            <Route path="/admin/users" element={<UserManagement/>} />
+            <Route path="/admin/users/:id" element={<UserDetailPage/>} />
+            <Route path="/admin/users/edit/:id" element={<UserEditPage/>} />
           </Routes>
         </main>
         <Footer />
