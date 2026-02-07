@@ -10,6 +10,7 @@ import {
   ExclamationTriangleIcon,
   ChevronRightIcon,
   ArrowPathIcon,
+  TagIcon,
 } from '@heroicons/react/24/outline';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -64,26 +65,30 @@ const ProductDetailPage = () => {
   };
 
   const formatDate = (date) =>
-    date ? new Date(date).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    }) : '—';
+    date
+      ? new Date(date).toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric',
+        })
+      : '—';
 
   const getCategoryDisplay = (cat) =>
     product?.categoryDisplay ||
-    ({
+    {
       vegetable: 'Vegetables',
       fruit: 'Fruits',
       staple: 'Staples',
       herb: 'Herbs',
       tuber: 'Tubers',
       other: 'Other',
-    }[cat] || cat || '—');
+    }[cat] ||
+    cat ||
+    '—';
 
   const getUnitDisplay = (unit) =>
     product?.unitDisplay ||
-    ({
+    {
       kg: 'kg',
       g: 'g',
       piece: 'pc',
@@ -93,7 +98,32 @@ const ProductDetailPage = () => {
       pack: 'pack',
       basket: 'basket',
       olonka: 'Olonka',
-    }[unit] || unit || '—');
+    }[unit] ||
+    unit ||
+    '—';
+
+  const getTagDisplay = (tagValue) => {
+    const tagOptions = [
+      { value: 'featured', label: 'Featured' },
+      { value: 'best_selling', label: 'Best Selling' },
+      { value: 'new_arrival', label: 'New Arrival' },
+      { value: 'discounted', label: 'Discounted' },
+      { value: 'popular', label: 'Popular' },
+      { value: 'seasonal', label: 'Seasonal' },
+      { value: 'fresh_today', label: 'Fresh Today' },
+      { value: 'farm_fresh', label: 'Farm Fresh' },
+      { value: 'organic', label: 'Organic' },
+      { value: 'locally_sourced', label: 'Locally Sourced' },
+      { value: 'ready_to_cook', label: 'Ready to Cook' },
+      { value: 'ready_to_eat', label: 'Ready to Eat' },
+      { value: 'perishable', label: 'Perishable' },
+      { value: 'non_perishable', label: 'Non-Perishable' },
+      // ← Add any additional tags you have defined in your add/edit forms
+    ];
+
+    const found = tagOptions.find((t) => t.value === tagValue);
+    return found ? found.label : tagValue; // fallback to raw value if unknown
+  };
 
   const getStockInfo = (stock = 0) => {
     if (stock === 0) return { text: 'Out of stock', color: 'text-red-600 bg-red-50' };
@@ -142,7 +172,9 @@ const ProductDetailPage = () => {
         <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <nav className="flex text-sm text-gray-500">
-              <Link to="/admin-products" className="hover:text-gray-700">Products</Link>
+              <Link to="/admin-products" className="hover:text-gray-700">
+                Products
+              </Link>
               <span className="mx-2">/</span>
               <span className="font-medium text-gray-900">{product.name}</span>
             </nav>
@@ -181,7 +213,7 @@ const ProductDetailPage = () => {
         </div>
 
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
-          {/* Left - Image + Description */}
+          {/* Left - Image + Description + Details */}
           <div className="space-y-6">
             <div className="overflow-hidden rounded-lg border bg-white">
               <img
@@ -197,16 +229,36 @@ const ProductDetailPage = () => {
             </div>
 
             <div className="rounded-lg border bg-white p-6">
-              <h2 className="mb-3 text-lg font-semibold text-gray-900">Details</h2>
-              <dl className="grid grid-cols-2 gap-4 text-sm">
+              <h2 className="mb-3 text-lg font-semibold text-gray-900 flex items-center gap-2">
+                <TagIcon className="h-5 w-5 text-gray-700" />
+                Details
+              </h2>
+              <dl className="grid grid-cols-2 gap-x-6 gap-y-4 text-sm">
                 <div>
                   <dt className="text-gray-500">Category</dt>
-                  <dd className="font-medium">{getCategoryDisplay(product.category)}</dd>
+                  <dd className="mt-0.5 font-medium">{getCategoryDisplay(product.category)}</dd>
                 </div>
                 <div>
                   <dt className="text-gray-500">Unit</dt>
-                  <dd className="font-medium">{getUnitDisplay(product.unit)}</dd>
+                  <dd className="mt-0.5 font-medium">{getUnitDisplay(product.unit)}</dd>
                 </div>
+
+                {product.tags?.length > 0 && (
+                  <div className="col-span-2">
+                    <dt className="text-gray-500 mb-1.5">Tags</dt>
+                    <dd className="flex flex-wrap gap-2">
+                      {product.tags.map((tag, index) => (
+                        <span
+                          key={index}
+                          className="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-700 ring-1 ring-inset ring-emerald-200/50"
+                        >
+                          {getTagDisplay(tag)}
+                        </span>
+                      ))}
+                    </dd>
+                  </div>
+                )}
+
                 {product.shelfLifeDays && (
                   <div>
                     <dt className="text-gray-500">Shelf life</dt>
@@ -217,7 +269,7 @@ const ProductDetailPage = () => {
             </div>
           </div>
 
-          {/* Right - Price, Stock, Status, Quick actions */}
+          {/* Right - Price, Stock, Status */}
           <div className="space-y-6">
             <div className="rounded-lg border bg-white p-6">
               <div className="mb-4 flex items-baseline gap-3">
@@ -253,7 +305,7 @@ const ProductDetailPage = () => {
               </div>
             </div>
 
-            {/* More info cards if needed */}
+            {/* Nutrition & Storage (if they exist) */}
             {product.nutritionalInfo && (
               <div className="rounded-lg border bg-white p-6">
                 <h2 className="mb-3 text-lg font-semibold text-gray-900">Nutrition</h2>

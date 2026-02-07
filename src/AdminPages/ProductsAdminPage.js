@@ -147,7 +147,7 @@ const ProductsAdminPage = () => {
               <p className="text-sm text-gray-600 mt-1">Manage inventory, pricing, and availability</p>
             </div>
             <Link
-              to="/add-product"
+              to="/admin/add-product"
               className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-medium px-5 py-3 rounded-xl transition"
             >
               <PlusIcon className="h-5 w-5" /> Add Product

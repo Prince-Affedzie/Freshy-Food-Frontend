@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Camera, Upload, X, AlertCircle, CheckCircle, Loader2 } from 'lucide-react';
+import { Camera, Upload, X, AlertCircle, CheckCircle, Loader2, Tag } from 'lucide-react';
 import { createProduct } from '../Apis/productApi';
 import AdminLayout from '../Components/AdminComponents/adminLayout';
 
@@ -36,6 +36,26 @@ const units = [
   { value: 'jar', label: 'Jar' },
 ];
 
+const tagOptions = [
+  // General tags
+  { value: 'featured', label: 'Featured', category: 'general' },
+  { value: 'best_selling', label: 'Best Selling', category: 'general' },
+  { value: 'new_arrival', label: 'New Arrival', category: 'general' },
+  { value: 'discounted', label: 'Discounted', category: 'general' },
+  { value: 'popular', label: 'Popular', category: 'general' },
+  { value: 'seasonal', label: 'Seasonal', category: 'general' },
+  
+  // Grocery-specific tags
+  { value: 'fresh_today', label: 'Fresh Today', category: 'grocery' },
+  { value: 'farm_fresh', label: 'Farm Fresh', category: 'grocery' },
+  { value: 'organic', label: 'Organic', category: 'grocery' },
+  { value: 'locally_sourced', label: 'Locally Sourced', category: 'grocery' },
+  { value: 'ready_to_cook', label: 'Ready to Cook', category: 'grocery' },
+  { value: 'ready_to_eat', label: 'Ready to Eat', category: 'grocery' },
+  { value: 'perishable', label: 'Perishable', category: 'grocery' },
+  { value: 'non_perishable', label: 'Non-Perishable', category: 'grocery' },
+];
+
 const initialFormState = {
   name: '',
   slug: '',
@@ -49,6 +69,7 @@ const initialFormState = {
   brand: '',
   weight: '',
   dimensions: '',
+  tags: [],
 };
 
 const ProductAddForm = () => {
@@ -59,6 +80,8 @@ const ProductAddForm = () => {
   const [loading, setLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+  const [tagSearch, setTagSearch] = useState('');
+  const [showDropdown, setShowDropdown] = useState(false);
   const fileInputRef = useRef(null);
 
   const generateSlug = (name) =>
@@ -93,6 +116,23 @@ const ProductAddForm = () => {
     }
 
     if (errors[name]) setErrors((prev) => ({ ...prev, [name]: '' }));
+  };
+
+  const handleTagToggle = (tagValue) => {
+    setFormData((prev) => {
+      const currentTags = [...prev.tags];
+      if (currentTags.includes(tagValue)) {
+        return {
+          ...prev,
+          tags: currentTags.filter(tag => tag !== tagValue)
+        };
+      } else {
+        return {
+          ...prev,
+          tags: [...currentTags, tagValue]
+        };
+      }
+    });
   };
 
   const handleImageChange = (e) => {
@@ -135,7 +175,13 @@ const ProductAddForm = () => {
     const submitData = new FormData();
     Object.keys(formData).forEach((key) => {
       const val = key === 'price' || key === 'countInStock' ? Number(formData[key]) : formData[key];
-      submitData.append(key, val);
+      if (key === 'tags') {
+        formData.tags.forEach(tag => {
+          submitData.append('tags[]', tag);
+        });
+      } else {
+        submitData.append(key, val);
+      }
     });
     if (imageFile) submitData.append('productImage', imageFile);
 
@@ -160,10 +206,17 @@ const ProductAddForm = () => {
     setImageFile(null);
     setImagePreview('');
     setErrors({});
+    setTagSearch('');
+    setShowDropdown(false);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
   };
+
+  const filteredTags = tagOptions.filter(tag =>
+    tag.label.toLowerCase().includes(tagSearch.toLowerCase()) ||
+    tag.value.toLowerCase().includes(tagSearch.toLowerCase())
+  );
 
   const InputField = ({ label, name, type = 'text', placeholder, required = false, error, ...props }) => (
     <div className="space-y-2">
@@ -304,7 +357,6 @@ const ProductAddForm = () => {
                       placeholder="Auto-generated slug"
                       required
                       error={errors.slug}
-                      helperText="Auto-generated from product name"
                     />
                     <SelectField
                       label="Category"
@@ -325,6 +377,119 @@ const ProductAddForm = () => {
                       name="brand"
                       placeholder="Enter brand name"
                     />
+                  </div>
+                </div>
+
+                {/* Tags Section - NEW COMPACT VERSION */}
+                <div className="space-y-6">
+                  <h3 className="text-lg font-semibold text-gray-900 border-b pb-2">Product Tags</h3>
+                  <div className="space-y-4">
+                    <p className="text-sm text-gray-600">
+                      Select tags to categorize and highlight your product
+                    </p>
+
+                    <div className="relative">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Tags
+                      </label>
+
+                      <div 
+                        className={`
+                          min-h-[42px] w-full border rounded-lg px-3 py-2
+                          focus-within:ring-2 focus-within:ring-emerald-500 focus-within:border-emerald-500
+                          ${errors.tags ? 'border-red-300' : 'border-gray-300'}
+                          bg-white transition-colors
+                        `}
+                      >
+                        <div className="flex flex-wrap gap-2 items-center">
+                          {/* Selected tags pills */}
+                          {formData.tags.map((tagValue) => {
+                            const tag = tagOptions.find(t => t.value === tagValue);
+                            if (!tag) return null;
+                            return (
+                              <div
+                                key={tag.value}
+                                className="inline-flex items-center gap-1.5 bg-emerald-100 text-emerald-800 pl-3 pr-2 py-1 rounded-full text-sm"
+                              >
+                                {tag.label}
+                                <button
+                                  type="button"
+                                  onClick={() => handleTagToggle(tag.value)}
+                                  className="text-emerald-700 hover:text-emerald-900 p-0.5 rounded-full hover:bg-emerald-200 transition-colors"
+                                >
+                                  <X size={14} />
+                                </button>
+                              </div>
+                            );
+                          })}
+
+                          {/* Input for search */}
+                          <input
+                            type="text"
+                            placeholder={formData.tags.length === 0 ? "Search or select tags..." : "Add more..."}
+                            value={tagSearch}
+                            onChange={(e) => setTagSearch(e.target.value)}
+                            onFocus={() => setShowDropdown(true)}
+                            onBlur={() => setTimeout(() => setShowDropdown(false), 200)}
+                            className="flex-1 min-w-[180px] outline-none bg-transparent text-sm py-1"
+                            disabled={loading}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Dropdown */}
+                      {showDropdown && (
+                        <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-xl max-h-64 overflow-y-auto">
+                          {filteredTags.length === 0 ? (
+                            <div className="px-4 py-3 text-sm text-gray-500 italic">
+                              No matching tags found
+                            </div>
+                          ) : (
+                            filteredTags.map((tag) => {
+                              const isSelected = formData.tags.includes(tag.value);
+                              return (
+                                <button
+                                  key={tag.value}
+                                  type="button"
+                                  onClick={() => {
+                                    handleTagToggle(tag.value);
+                                    // Optional: clear search after pick
+                                    // setTagSearch('');
+                                  }}
+                                  className={`
+                                    w-full px-4 py-2.5 text-left flex items-center gap-3 hover:bg-gray-50 transition-colors
+                                    ${isSelected ? 'bg-emerald-50' : ''}
+                                  `}
+                                >
+                                  <div className={`
+                                    w-5 h-5 rounded border flex items-center justify-center flex-shrink-0
+                                    ${isSelected 
+                                      ? 'bg-emerald-500 border-emerald-500' 
+                                      : 'border-gray-300'
+                                    }
+                                  `}>
+                                    {isSelected && <CheckCircle size={14} className="text-white" />}
+                                  </div>
+                                  
+                                  <div className="flex-1 min-w-0">
+                                    <div className="font-medium text-sm">{tag.label}</div>
+                                    <div className="text-xs text-gray-500">
+                                      {tag.category === 'general' ? 'General' : 'Grocery-specific'}
+                                    </div>
+                                  </div>
+                                </button>
+                              );
+                            })
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {formData.tags.length > 0 && (
+                      <p className="text-xs text-gray-500">
+                        {formData.tags.length} tag{formData.tags.length !== 1 ? 's' : ''} selected
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -440,7 +605,6 @@ const ProductAddForm = () => {
                       </label>
                     </div>
 
-                    {/* Image Preview */}
                     {imagePreview && (
                       <div className="relative">
                         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 bg-gray-50 p-4 rounded-lg">
@@ -515,6 +679,10 @@ const ProductAddForm = () => {
               <li className="flex items-start gap-2">
                 <span className="text-emerald-600">•</span>
                 Provide detailed descriptions including size, weight, and usage
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-emerald-600">•</span>
+                Use relevant tags to improve discoverability
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-emerald-600">•</span>

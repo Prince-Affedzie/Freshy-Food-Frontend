@@ -61,6 +61,7 @@ const AdminSidebar = ({
       ],
     },
     { id: 'users', title: 'Users', icon: Users, route: '/admin/users' },
+    { id: 'payments', title: 'Payments', icon: Users, route: '/admin/payments' }, //
     { id: 'analytics', title: 'Analytics', icon: BarChart2, route: '/admin/analytics' },
     { id: 'settings', title: 'Settings', icon: Settings, route: '/admin/settings' },
   ];

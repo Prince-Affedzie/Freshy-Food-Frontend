@@ -1,5 +1,15 @@
 import { API } from './apiConfig';
 
+///admin/dashboard
+
+export const fetchDashboardData = async () => {
+  try {
+    const response = await API.get('/api/admin/dashboard');
+    return response;
+  } catch (error) {
+    throw error;
+  }
+};
 
 export const createUser = async (Data) => {
   try {
@@ -58,3 +68,42 @@ export const toggleAdmin = async (id) => {
     throw error;
   }
 };
+
+
+// paymentAPIs
+export const getPaymentsOverview = async () => {
+  try {
+    const response = await API.get(`/api/admin/payments/overview`);
+    return response;
+  } catch (error) {
+    throw error;
+  }
+};
+
+export const getAllPayments = async () => {
+  try {
+    const response = await API.get(`/api/admin/payments`);
+    return response;
+  } catch (error) {
+    throw error;
+  }
+};
+
+export const getSinglePayment = async (id) => {
+  try {
+    const response = await API.get(`/api/admin/payments/${id}`);
+    return response;
+  } catch (error) {
+    throw error;
+  }
+};
+
+export const updatePaymentStatus = async (id) => {
+  try {
+    const response = await API.put(`/api/admin/payments/${id}/status`);
+    return response;
+  } catch (error) {
+    throw error;
+  }
+};
+
