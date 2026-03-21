@@ -35,6 +35,7 @@ import AdminLayout from './Components/AdminComponents/adminLayout';
 import UnauthorizedPage from './AdminPages/UnauthorizedPage';
 import Dashboard from './AdminPages/Dashboard'
 import Payments from './AdminPages/Payments'
+import NotificationsPage from './AdminPages/Notifications'
 import PaymentDetail from './AdminPages/PaymentDetail';
 import LoadingSpinner from './Components/LoadingSpinner';
 
@@ -319,6 +320,13 @@ function App() {
           <Route path="/admin/users/edit/:id" element={
             <AdminRoute>
               <UserEditPage />
+            </AdminRoute>
+           
+          } />
+
+          <Route path="/admin/notifications" element={
+            <AdminRoute>
+              <NotificationsPage/>
             </AdminRoute>
            
           } />

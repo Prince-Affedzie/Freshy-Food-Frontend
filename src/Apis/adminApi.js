@@ -107,3 +107,39 @@ export const updatePaymentStatus = async (id) => {
   }
 };
 
+
+export const getAllNotifications = async () => {
+  try {
+    const response = await API.get(`/api/notifications`);
+    return response
+  } catch (error) {
+    throw error;
+  }
+};
+
+export const markNotificationAsRead = async (ids) => {
+  try {
+    const response = await API.put(`/api/mark_notifications/read`, ids);
+    return response
+  } catch (error) {
+    throw error;
+  }
+};
+
+export const deleteNotification = async (Id) => {
+  try {
+    const response = await API.delete(`/api/delete/notification/${Id}`);
+    return response
+  } catch (error) {
+    throw error;
+  }
+};
+
+export const deleteBulkNotifications = async (selectedNotifications) => {
+  try {
+    const response = await API.post(`/api/delete/bulk_notification`,selectedNotifications);
+    return response
+  } catch (error) {
+    throw error;
+  }
+};

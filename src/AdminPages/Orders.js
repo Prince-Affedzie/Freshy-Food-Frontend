@@ -2,767 +2,646 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Search,
-  Filter,
-  ChevronLeft,
-  ChevronRight,
-  ChevronsLeft,
-  ChevronsRight,
-  Eye,
-  CheckCircle,
-  Clock,
-  Truck,
-  XCircle,
-  DollarSign,
-  ShoppingCart,
-  User,
-  MapPin,
-  Calendar,
-  CreditCard,
-  RefreshCw,
-  BarChart3,
-  AlertTriangle,
-  Package,
-  TrendingUp,
-  Download,
-  MoreVertical
+  Search, Filter, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
+  Eye, CheckCircle, Clock, Truck, XCircle, DollarSign, ShoppingCart, User,
+  MapPin, Calendar, CreditCard, RefreshCw, AlertTriangle, Package,
+  TrendingUp, Download, MoreVertical, X, ChevronDown,
 } from 'lucide-react';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { getAllOrders } from '../Apis/orderApi';
 import AdminLayout from '../Components/AdminComponents/adminLayout';
 
+// ─── Status / payment config ──────────────────────────────────────────────────
+const STATUS_MAP = {
+  Pending:          { bg:'#FFFBE6', color:'#D48806', border:'#FFE58F', dot:'#FAAD14', icon: Clock        },
+  Processing:       { bg:'#E6F4FF', color:'#1677FF', border:'#91CAFF', dot:'#1677FF', icon: RefreshCw    },
+  'Out for Delivery':{ bg:'#F0F5FF', color:'#2F54EB', border:'#ADC6FF', dot:'#2F54EB', icon: Truck       },
+  Delivered:        { bg:'#F6FFED', color:'#389E0D', border:'#B7EB8F', dot:'#52C41A', icon: CheckCircle  },
+  Cancelled:        { bg:'#FFF1F0', color:'#CF1322', border:'#FFA39E', dot:'#FF4D4F', icon: XCircle      },
+};
+const getStatus = (s) => STATUS_MAP[s] ?? { bg:'#F5F5F5', color:'#595959', border:'#E8E8E8', dot:'#8C8C8C', icon: Package };
+
+const PAY_MAP = {
+  momo: { label:'Mobile Money', bg:'#F9F0FF', color:'#531DAB', border:'#D3ADF7' },
+  card: { label:'Card',         bg:'#E6F4FF', color:'#1677FF', border:'#91CAFF' },
+  cash: { label:'Cash',         bg:'#F6FFED', color:'#389E0D', border:'#B7EB8F' },
+};
+const getPay = (m) => PAY_MAP[m] ?? { label: m||'N/A', bg:'#F5F5F5', color:'#595959', border:'#E8E8E8' };
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+const fmtDate = (d) =>
+  d ? new Date(d).toLocaleDateString('en-US',{ day:'2-digit', month:'short', year:'numeric' }) : 'N/A';
+
+const fmtCurrency = (n) =>
+  (n||0).toLocaleString('en-US',{ style:'currency', currency:'USD' });
+
+// ─── Tiny sub-components ──────────────────────────────────────────────────────
+const StatusBadge = ({ status, size='md' }) => {
+  const cfg  = getStatus(status);
+  const Icon = cfg.icon;
+  const pad  = size==='sm' ? '2px 8px' : '4px 11px';
+  const fs   = size==='sm' ? 10 : 11;
+  return (
+    <span style={{ display:'inline-flex', alignItems:'center', gap:4, padding:pad,
+      borderRadius:20, fontSize:fs, fontWeight:700, background:cfg.bg, color:cfg.color,
+      border:`1px solid ${cfg.border}`, whiteSpace:'nowrap' }}>
+      <Icon size={10}/>{status}
+    </span>
+  );
+};
+
+const PayBadge = ({ method, isPaid }) => {
+  const cfg = getPay(method);
+  return (
+    <span style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'3px 9px',
+      borderRadius:20, fontSize:11, fontWeight:700, background:cfg.bg, color:cfg.color,
+      border:`1px solid ${cfg.border}`, whiteSpace:'nowrap' }}>
+      <CreditCard size={10}/>{cfg.label}
+      {isPaid && <CheckCircle size={9} color="#52C41A"/>}
+    </span>
+  );
+};
+
+const StatCard = ({ label, value, icon: Icon, accent, delay }) => (
+  <div style={{ background:'#fff', borderRadius:12, border:'1px solid #F0F0F0',
+    padding:'16px 18px', display:'flex', alignItems:'center', justifyContent:'space-between',
+    boxShadow:'0 1px 4px rgba(0,0,0,0.04)', borderTop:`3px solid ${accent}`,
+    animation:`fadeUp 0.4s ease ${delay}ms both`, flex:'1 1 150px', minWidth:0 }}>
+  <div style={{ minWidth:0 }}>
+    <p style={{ margin:'0 0 4px', fontSize:11, fontWeight:700, color:'#BFBFBF',
+      textTransform:'uppercase', letterSpacing:'0.06em', whiteSpace:'nowrap' }}>{label}</p>
+    <p style={{ margin:0, fontSize:20, fontWeight:800, color:'#141414', letterSpacing:'-0.5px',
+      overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{value}</p>
+  </div>
+  <div style={{ width:38, height:38, borderRadius:10, background:accent+'18',
+    display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, marginLeft:8 }}>
+    <Icon size={17} color={accent}/>
+  </div>
+  </div>
+);
+
+const IconBtn = ({ onClick, title, bg, color, border, children }) => (
+  <button onClick={onClick} title={title} style={{
+    width:30, height:30, borderRadius:7, background:bg||'#fff', color, border:`1.5px solid ${border||'#E8E8E8'}`,
+    display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', transition:'filter 0.15s',
+  }}>
+    {children}
+  </button>
+);
+
+const SelectBox = ({ value, onChange, children, style={} }) => (
+  <div style={{ position:'relative', ...style }}>
+    <select value={value} onChange={onChange} style={{
+      width:'100%', padding:'9px 32px 9px 12px', border:'1.5px solid #E8E8E8', borderRadius:9,
+      fontSize:13, fontFamily:"'DM Sans',sans-serif", color:'#262626', background:'#FAFAFA',
+      outline:'none', cursor:'pointer', appearance:'none',
+    }}>{children}</select>
+    <ChevronDown size={13} color="#8C8C8C" style={{ position:'absolute', right:10, top:'50%', transform:'translateY(-50%)', pointerEvents:'none' }}/>
+  </div>
+);
+
+// ─── Main ─────────────────────────────────────────────────────────────────────
 const AdminOrdersPage = () => {
   const navigate = useNavigate();
-  const [orders, setOrders] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState(null);
-  const [filters, setFilters] = useState({
-    status: 'all',
-    startDate: '',
-    endDate: '',
-    paymentMethod: 'all',
-    search: '',
-    sort: 'newest',
-    page: 1,
-    limit: 20,
+  const [orders, setOrders]     = useState([]);
+  const [loading, setLoading]   = useState(true);
+  const [stats, setStats]       = useState(null);
+  const [showFilters, setShowFilters] = useState(false);
+  const [filters, setFilters]   = useState({
+    status:'all', startDate:'', endDate:'', paymentMethod:'all',
+    search:'', sort:'newest', page:1, limit:20,
   });
   const [pagination, setPagination] = useState({
-    currentPage: 1,
-    totalPages: 1,
-    total: 0,
-    hasNextPage: false,
-    hasPrevPage: false,
+    currentPage:1, totalPages:1, total:0, hasNextPage:false, hasPrevPage:false,
   });
-  const [showFilters, setShowFilters] = useState(false);
-  const [activeFilterCount, setActiveFilterCount] = useState(0);
 
-  const statusOptions = [
-    { value: 'all', label: 'All Status', color: 'gray', bg: 'bg-gray-100', text: 'text-gray-800' },
-    { value: 'Pending', label: 'Pending', color: 'yellow', bg: 'bg-yellow-100', text: 'text-yellow-800' },
-    { value: 'Processing', label: 'Processing', color: 'blue', bg: 'bg-blue-100', text: 'text-blue-800' },
-    { value: 'Out for Delivery', label: 'Out for Delivery', color: 'purple', bg: 'bg-purple-100', text: 'text-purple-800' },
-    { value: 'Delivered', label: 'Delivered', color: 'green', bg: 'bg-green-100', text: 'text-green-800' },
-    { value: 'Cancelled', label: 'Cancelled', color: 'red', bg: 'bg-red-100', text: 'text-red-800' },
-  ];
+  const activeFilterCount = [
+    filters.status !== 'all', filters.paymentMethod !== 'all',
+    filters.startDate, filters.endDate, filters.search, filters.sort !== 'newest',
+  ].filter(Boolean).length;
 
-  const paymentMethodOptions = [
-    { value: 'all', label: 'All Methods' },
-    { value: 'momo', label: 'Mobile Money' },
-    { value: 'card', label: 'Card' },
-    { value: 'cash', label: 'Cash on Delivery' },
-  ];
-
-  const sortOptions = [
-    { value: 'newest', label: 'Newest First' },
-    { value: 'oldest', label: 'Oldest First' },
-    { value: 'totalPrice', label: 'Price: Low to High' },
-    { value: 'totalPrice-desc', label: 'Price: High to Low' },
-  ];
-
-  useEffect(() => {
-    fetchOrders();
-  }, [filters]);
-
-  useEffect(() => {
-    // Calculate active filter count
-    let count = 0;
-    if (filters.status !== 'all') count++;
-    if (filters.paymentMethod !== 'all') count++;
-    if (filters.startDate) count++;
-    if (filters.endDate) count++;
-    if (filters.search) count++;
-    if (filters.sort !== 'newest') count++;
-    setActiveFilterCount(count);
-  }, [filters]);
+  useEffect(() => { fetchOrders(); }, [filters]);
 
   const fetchOrders = async () => {
     setLoading(true);
     try {
-      // Clean up filters for API call
-      const apiFilters = { ...filters };
-      if (apiFilters.status === 'all') delete apiFilters.status;
-      if (apiFilters.paymentMethod === 'all') delete apiFilters.paymentMethod;
-      if (!apiFilters.search) delete apiFilters.search;
-      if (!apiFilters.startDate) delete apiFilters.startDate;
-      if (!apiFilters.endDate) delete apiFilters.endDate;
-
-      const response = await getAllOrders(apiFilters);
-      
-      if (response.data.success) {
-        setOrders(response.data.data);
-        setStats(response.data.stats);
-        setPagination(response.data.pagination);
-      } else {
-        throw new Error('Failed to fetch orders');
-      }
-    } catch (error) {
-      console.error('Error fetching orders:', error);
-      toast.error(error.response?.data?.message || 'Failed to load orders');
-    } finally {
-      setLoading(false);
-    }
+      const f = { ...filters };
+      if (f.status === 'all')        delete f.status;
+      if (f.paymentMethod === 'all') delete f.paymentMethod;
+      if (!f.search)     delete f.search;
+      if (!f.startDate)  delete f.startDate;
+      if (!f.endDate)    delete f.endDate;
+      const res = await getAllOrders(f);
+      if (res.data.success) {
+        setOrders(res.data.data);
+        setStats(res.data.stats);
+        setPagination(res.data.pagination);
+      } else throw new Error();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to load orders');
+    } finally { setLoading(false); }
   };
 
-  const handleFilterChange = (key, value) => {
-    setFilters(prev => ({
-      ...prev,
-      [key]: value,
-      page: 1, // Reset to first page when filters change
-    }));
-  };
-
-  const handlePageChange = (newPage) => {
-    if (newPage >= 1 && newPage <= pagination.totalPages) {
-      setFilters(prev => ({ ...prev, page: newPage }));
-    }
-  };
-
+  const setFilter  = (k, v) => setFilters(p=>({...p,[k]:v,page:1}));
+  const changePage = (n) => { if (n>=1 && n<=pagination.totalPages) setFilters(p=>({...p,page:n})); };
   const resetFilters = () => {
-    setFilters({
-      status: 'all',
-      startDate: '',
-      endDate: '',
-      paymentMethod: 'all',
-      search: '',
-      sort: 'newest',
-      page: 1,
-      limit: 20,
-    });
+    setFilters({ status:'all', startDate:'', endDate:'', paymentMethod:'all', search:'', sort:'newest', page:1, limit:20 });
     toast.info('Filters reset');
   };
 
-  const getStatusIcon = (status) => {
-    switch (status) {
-      case 'Pending': return Clock;
-      case 'Processing': return RefreshCw;
-      case 'Out for Delivery': return Truck;
-      case 'Delivered': return CheckCircle;
-      case 'Cancelled': return XCircle;
-      default: return Package;
-    }
-  };
-
-  const getStatusBadge = (order) => {
-    const statusConfig = statusOptions.find(s => s.value === order.status) || statusOptions[0];
-    const Icon = getStatusIcon(order.status);
-    
-    return (
-      <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium ${statusConfig.bg} ${statusConfig.text}`}>
-        <Icon size={14} />
-        {order.status}
-        {order.status === 'Delivered' && order.isPaid && (
-          <CheckCircle className="text-green-500" size={14} />
-        )}
-      </div>
-    );
-  };
-
-  const getPaymentBadge = (method, isPaid) => {
-    const methods = {
-      momo: { label: 'Mobile Money', color: 'bg-purple-100 text-purple-800' },
-      card: { label: 'Card', color: 'bg-blue-100 text-blue-800' },
-      cash: { label: 'Cash', color: 'bg-green-100 text-green-800' },
-    };
-
-    const config = methods[method] || { label: method, color: 'bg-gray-100 text-gray-800' };
-
-    return (
-      <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium ${config.color}`}>
-        <CreditCard size={14} />
-        {config.label}
-        {isPaid && <CheckCircle className="text-green-500" size={14} />}
-      </div>
-    );
-  };
-
-  const formatDate = (dateString) => {
-    if (!dateString) return 'N/A';
-    return new Date(dateString).toLocaleDateString('en-US', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
-  const formatShortDate = (dateString) => {
-    if (!dateString) return 'N/A';
-    return new Date(dateString).toLocaleDateString('en-US', {
-      day: '2-digit',
-      month: 'short',
-    });
-  };
-
-  const getOrderItemsCount = (order) => {
-    return order.items?.length || order.itemsCount || 0;
-  };
-
-  if (loading && orders.length === 0) {
-    return (
-      <AdminLayout title="Orders Management">
-        <div className="flex items-center justify-center min-h-[60vh]">
-          <div className="text-center">
-            <div className="w-12 h-12 border-4 border-gray-300 border-t-emerald-600 rounded-full animate-spin mx-auto"></div>
-            <p className="mt-4 text-gray-600 font-medium">Loading orders...</p>
-          </div>
-        </div>
-      </AdminLayout>
-    );
-  }
+  const itemCount = (o) => o.items?.length || o.itemsCount || 0;
 
   return (
     <AdminLayout title="Orders Management">
-      <ToastContainer position="top-right" autoClose={3000} theme="light" />
-      
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div>
-            <h2 className="text-2xl font-bold text-gray-900">Customer Orders</h2>
-            <p className="text-gray-600">Manage and track all customer orders</p>
-          </div>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setShowFilters(!showFilters)}
-              className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors relative"
-            >
-              <Filter size={18} />
-              Filters
-              {activeFilterCount > 0 && (
-                <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">
-                  {activeFilterCount}
-                </span>
-              )}
-            </button>
-            <button
-              onClick={fetchOrders}
-              className="p-2.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
-            >
-              <RefreshCw size={18} />
-            </button>
-            <button className="p-2.5 border border-gray-300 rounded-lg hover:bg-gray-50">
-              <Download size={18} />
-            </button>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap');
+        * { box-sizing:border-box; }
+        @keyframes fadeUp { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+        @keyframes spin   { to{transform:rotate(360deg)} }
+        .ao-row:hover   { background:#FAFCFF !important; }
+        .ao-card:hover  { border-color:#91CAFF !important; }
+        .ao-iBtn:hover  { filter:brightness(0.9); }
+
+        @media (max-width:640px) {
+          .ao-stats     { flex-wrap:wrap !important; }
+          .ao-stats>div { flex:1 1 calc(50% - 7px) !important; }
+          .ao-hdr       { flex-direction:column !important; align-items:flex-start !important; }
+          .ao-hdr-btns  { width:100% !important; justify-content:flex-end !important; }
+          .ao-filter-grid { grid-template-columns:1fr !important; }
+          .ao-filter-g2   { grid-template-columns:1fr !important; }
+          .ao-desktop   { display:none !important; }
+          .ao-mobile    { display:flex !important; }
+          .ao-pg-footer { flex-direction:column !important; align-items:flex-start !important; }
+          .ao-bottom    { flex-direction:column !important; }
+          .ao-status-dist { margin-bottom:0 !important; }
+        }
+        @media (min-width:641px) {
+          .ao-mobile { display:none !important; }
+        }
+      `}</style>
+
+      <ToastContainer position="top-right" autoClose={3000} theme="light"/>
+
+      <div style={{ overflow:"hidden", fontFamily:"'DM Sans',sans-serif", background:'#FAFAFA', minHeight:'100vh', color:'#262626' }}>
+
+        {/* ── Sticky header ── */}
+        <div style={{ position:'sticky', top:0, zIndex:100, background:'#fff',
+          borderBottom:'1px solid #F0F0F0', boxShadow:'0 1px 4px rgba(0,0,0,0.05)' }}>
+          <div className="ao-hdr" style={{ maxWidth:1200, margin:'0 auto', padding:'14px 20px',
+            display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:12 }}>
+            <div>
+              <h1 style={{ margin:0, fontSize:18, fontWeight:800, color:'#141414', letterSpacing:'-0.3px' }}>Customer Orders</h1>
+              <p style={{ margin:'2px 0 0', fontSize:11, color:'#BFBFBF' }}>Manage and track all customer orders</p>
+            </div>
+            <div className="ao-hdr-btns" style={{ display:'flex', alignItems:'center', gap:8 }}>
+              {/* Filter toggle */}
+              <button onClick={()=>setShowFilters(v=>!v)} style={{
+                display:'flex', alignItems:'center', gap:7, padding:'9px 14px',
+                border:`1.5px solid ${showFilters?'#1677FF':'#E8E8E8'}`,
+                borderRadius:9, fontSize:13, fontWeight:600,
+                background:showFilters?'#E6F4FF':'#fff', color:showFilters?'#1677FF':'#595959',
+                cursor:'pointer', fontFamily:"'DM Sans',sans-serif", position:'relative',
+              }}>
+                <Filter size={14}/> Filters
+                {activeFilterCount > 0 && (
+                  <span style={{ position:'absolute', top:-6, right:-6, width:18, height:18,
+                    borderRadius:'50%', background:'#FF4D4F', color:'#fff',
+                    fontSize:10, fontWeight:800, display:'flex', alignItems:'center', justifyContent:'center',
+                    border:'2px solid #fff' }}>{activeFilterCount}</span>
+                )}
+              </button>
+              <IconBtn onClick={fetchOrders} title="Refresh" bg="#F6FFED" color="#389E0D" border="#B7EB8F">
+                <RefreshCw size={14} style={{ animation: loading ? 'spin 0.7s linear infinite' : 'none' }}/>
+              </IconBtn>
+              <IconBtn title="Export" bg="#fff" color="#595959" border="#E8E8E8">
+                <Download size={14}/>
+              </IconBtn>
+            </div>
           </div>
         </div>
 
-        {/* Filter Panel */}
-        {showFilters && (
-          <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {/* Status Filter */}
-              <div className="space-y-2">
-                <label className="block text-sm font-medium text-gray-700">Order Status</label>
-                <select
-                  value={filters.status}
-                  onChange={(e) => handleFilterChange('status', e.target.value)}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
-                >
-                  {statusOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
+        <div style={{ maxWidth:1200, margin:'0 auto', padding:'24px 16px 56px' }}>
 
-              {/* Payment Method Filter */}
-              <div className="space-y-2">
-                <label className="block text-sm font-medium text-gray-700">Payment Method</label>
-                <select
-                  value={filters.paymentMethod}
-                  onChange={(e) => handleFilterChange('paymentMethod', e.target.value)}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
-                >
-                  {paymentMethodOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Date Range */}
-              <div className="space-y-2">
-                <label className="block text-sm font-medium text-gray-700">Start Date</label>
-                <input
-                  type="date"
-                  value={filters.startDate}
-                  onChange={(e) => handleFilterChange('startDate', e.target.value)}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label className="block text-sm font-medium text-gray-700">End Date</label>
-                <input
-                  type="date"
-                  value={filters.endDate}
-                  onChange={(e) => handleFilterChange('endDate', e.target.value)}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Search */}
-              <div className="lg:col-span-2 space-y-2">
-                <label className="block text-sm font-medium text-gray-700">Search Orders</label>
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-                  <input
-                    type="text"
-                    value={filters.search}
-                    onChange={(e) => handleFilterChange('search', e.target.value)}
-                    placeholder="Search by Order ID, Customer Name or Phone..."
-                    className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
-                  />
-                </div>
-              </div>
-
-              {/* Sort */}
-              <div className="space-y-2">
-                <label className="block text-sm font-medium text-gray-700">Sort By</label>
-                <select
-                  value={filters.sort}
-                  onChange={(e) => handleFilterChange('sort', e.target.value)}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
-                >
-                  {sortOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-3">
-              <button
-                onClick={resetFilters}
-                className="px-5 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
-              >
-                Reset All
-              </button>
-              <button
-                onClick={() => setShowFilters(false)}
-                className="px-5 py-2.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors font-medium"
-              >
-                Apply Filters
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Stats Cards */}
-        {stats && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {/* Today's Orders */}
-            <div className="bg-white p-6 rounded-xl border border-gray-200">
-              <div className="flex items-center justify-between">
+          {/* ── Filter panel ── */}
+          {showFilters && (
+            <div style={{ background:'#fff', borderRadius:12, border:'1px solid #F0F0F0',
+              padding:'18px 20px', marginBottom:18, boxShadow:'0 1px 4px rgba(0,0,0,0.05)',
+              animation:'fadeIn 0.2s ease' }}>
+              <div className="ao-filter-grid" style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:14, marginBottom:14 }}>
                 <div>
-                  <p className="text-sm text-gray-500">Today's Orders</p>
-                  <p className="text-2xl font-bold text-gray-900 mt-2">{stats.todayOrders || 0}</p>
+                  <p style={{ margin:'0 0 6px', fontSize:11, fontWeight:700, color:'#8C8C8C', textTransform:'uppercase', letterSpacing:'0.05em' }}>Status</p>
+                  <SelectBox value={filters.status} onChange={e=>setFilter('status',e.target.value)}>
+                    <option value="all">All Status</option>
+                    {Object.keys(STATUS_MAP).map(s=><option key={s} value={s}>{s}</option>)}
+                  </SelectBox>
                 </div>
-                <div className="p-3 bg-blue-50 rounded-lg">
-                  <Calendar className="text-blue-600" size={24} />
-                </div>
-              </div>
-            </div>
-
-            {/* Pending Orders */}
-            <div className="bg-white p-6 rounded-xl border border-gray-200">
-              <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-500">Pending Orders</p>
-                  <p className="text-2xl font-bold text-gray-900 mt-2">{stats.pendingOrders || 0}</p>
+                  <p style={{ margin:'0 0 6px', fontSize:11, fontWeight:700, color:'#8C8C8C', textTransform:'uppercase', letterSpacing:'0.05em' }}>Payment Method</p>
+                  <SelectBox value={filters.paymentMethod} onChange={e=>setFilter('paymentMethod',e.target.value)}>
+                    <option value="all">All Methods</option>
+                    <option value="momo">Mobile Money</option>
+                    <option value="card">Card</option>
+                    <option value="cash">Cash on Delivery</option>
+                  </SelectBox>
                 </div>
-                <div className="p-3 bg-yellow-50 rounded-lg">
-                  <Clock className="text-yellow-600" size={24} />
-                </div>
-              </div>
-            </div>
-
-            {/* Total Revenue */}
-            <div className="bg-white p-6 rounded-xl border border-gray-200">
-              <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-500">Total Revenue</p>
-                  <p className="text-2xl font-bold text-gray-900 mt-2">
-                    {stats.totalRevenueDisplay || '$0.00'}
-                  </p>
+                  <p style={{ margin:'0 0 6px', fontSize:11, fontWeight:700, color:'#8C8C8C', textTransform:'uppercase', letterSpacing:'0.05em' }}>Start Date</p>
+                  <input type="date" value={filters.startDate} onChange={e=>setFilter('startDate',e.target.value)}
+                    style={{ width:'100%', padding:'9px 12px', border:'1.5px solid #E8E8E8', borderRadius:9,
+                      fontSize:13, fontFamily:"'DM Sans',sans-serif", outline:'none', color:'#262626', background:'#FAFAFA' }}/>
                 </div>
-                <div className="p-3 bg-green-50 rounded-lg">
-                  <DollarSign className="text-green-600" size={24} />
-                </div>
-              </div>
-            </div>
-
-            {/* Avg Order Value */}
-            <div className="bg-white p-6 rounded-xl border border-gray-200">
-              <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-500">Avg Order Value</p>
-                  <p className="text-2xl font-bold text-gray-900 mt-2">
-                    {stats.avgOrderValueDisplay || '$0.00'}
-                  </p>
-                </div>
-                <div className="p-3 bg-purple-50 rounded-lg">
-                  <TrendingUp className="text-purple-600" size={24} />
+                  <p style={{ margin:'0 0 6px', fontSize:11, fontWeight:700, color:'#8C8C8C', textTransform:'uppercase', letterSpacing:'0.05em' }}>End Date</p>
+                  <input type="date" value={filters.endDate} onChange={e=>setFilter('endDate',e.target.value)}
+                    style={{ width:'100%', padding:'9px 12px', border:'1.5px solid #E8E8E8', borderRadius:9,
+                      fontSize:13, fontFamily:"'DM Sans',sans-serif", outline:'none', color:'#262626', background:'#FAFAFA' }}/>
                 </div>
               </div>
+              <div className="ao-filter-g2" style={{ display:'grid', gridTemplateColumns:'1fr auto auto', gap:12, alignItems:'flex-end' }}>
+                {/* Search */}
+                <div>
+                  <p style={{ margin:'0 0 6px', fontSize:11, fontWeight:700, color:'#8C8C8C', textTransform:'uppercase', letterSpacing:'0.05em' }}>Search</p>
+                  <div style={{ position:'relative' }}>
+                    <Search size={14} color="#BFBFBF" style={{ position:'absolute', left:11, top:'50%', transform:'translateY(-50%)' }}/>
+                    <input value={filters.search} onChange={e=>setFilter('search',e.target.value)}
+                      placeholder="Order ID, customer name or phone…"
+                      style={{ width:'100%', paddingLeft:32, paddingRight:filters.search?32:12, paddingTop:9, paddingBottom:9,
+                        border:'1.5px solid #E8E8E8', borderRadius:9, fontSize:13, fontFamily:"'DM Sans',sans-serif",
+                        outline:'none', color:'#262626', background:'#FAFAFA' }}/>
+                    {filters.search && (
+                      <button onClick={()=>setFilter('search','')} style={{ position:'absolute', right:10, top:'50%', transform:'translateY(-50%)',
+                        background:'none', border:'none', cursor:'pointer', padding:0, display:'flex', color:'#BFBFBF' }}>
+                        <X size={13}/>
+                      </button>
+                    )}
+                  </div>
+                </div>
+                {/* Sort */}
+                <SelectBox value={filters.sort} onChange={e=>setFilter('sort',e.target.value)} style={{ minWidth:160 }}>
+                  <option value="newest">Newest First</option>
+                  <option value="oldest">Oldest First</option>
+                  <option value="totalPrice">Price: Low → High</option>
+                  <option value="totalPrice-desc">Price: High → Low</option>
+                </SelectBox>
+                {/* Reset */}
+                <button onClick={resetFilters} style={{
+                  padding:'9px 16px', border:'1.5px solid #FFA39E', borderRadius:9,
+                  fontSize:13, fontWeight:600, color:'#FF4D4F', background:'#FFF1F0',
+                  cursor:'pointer', fontFamily:"'DM Sans',sans-serif", whiteSpace:'nowrap',
+                }}>Reset</button>
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Orders Table */}
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-          {/* Table Header */}
-          <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 flex items-center justify-between">
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900">
-                Orders ({pagination.total || 0})
-              </h3>
-              <p className="text-sm text-gray-600 mt-1">
-                Showing {orders.length} of {pagination.total || 0} orders
-              </p>
+          {/* ── Stats ── */}
+          {stats && (
+            <div className="ao-stats" style={{ display:'flex', gap:14, marginBottom:20 }}>
+              <StatCard label="Today's Orders"  value={stats.todayOrders??0}              icon={Calendar}   accent="#1677FF" delay={0}  />
+              <StatCard label="Pending"          value={stats.pendingOrders??0}            icon={Clock}       accent="#FAAD14" delay={60} />
+              <StatCard label="Total Revenue"    value={stats.totalRevenueDisplay||'₵0.00'} icon={DollarSign} accent="#10B981" delay={120}/>
+              <StatCard label="Avg Order Value"  value={stats.avgOrderValueDisplay||'₵0.00'} icon={TrendingUp} accent="#7C3AED" delay={180}/>
             </div>
-            <div className="flex items-center gap-2 text-sm text-gray-600">
-              <span>Rows per page:</span>
-              <select
-                value={filters.limit}
-                onChange={(e) => handleFilterChange('limit', parseInt(e.target.value))}
-                className="border-0 bg-transparent focus:ring-0 outline-none"
-              >
-                <option value="10">10</option>
-                <option value="20">20</option>
-                <option value="50">50</option>
-                <option value="100">100</option>
-              </select>
-            </div>
-          </div>
+          )}
 
-          {/* Table */}
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Order Details
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Customer
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Items
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Amount
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Payment
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {orders.length > 0 ? (
-                  orders.map((order) => (
-                    <tr key={order.id} className="hover:bg-gray-50">
-                      {/* Order Details Column */}
-                      <td className="px-6 py-4">
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2">
-                            <ShoppingCart className="text-gray-400" size={16} />
-                            <span className="font-medium text-gray-900">
-                              {order.orderNumber || `#${order.id?.substring(0, 8)}`}
+          {/* ── Table card ── */}
+          <div style={{ background:'#fff', borderRadius:14, border:'1px solid #F0F0F0', overflow:'hidden',
+            boxShadow:'0 1px 4px rgba(0,0,0,0.05)', animation:'fadeUp 0.35s ease 220ms both' }}>
+
+            {/* Table header bar */}
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between',
+              padding:'14px 20px', borderBottom:'1px solid #F5F5F5', background:'#FAFAFA', flexWrap:'wrap', gap:10 }}>
+              <div>
+                <span style={{ fontSize:14, fontWeight:700, color:'#141414' }}>
+                  Orders <span style={{ color:'#BFBFBF', fontWeight:500 }}>({pagination.total||0})</span>
+                </span>
+                <span style={{ fontSize:12, color:'#8C8C8C', marginLeft:10 }}>
+                  Showing {orders.length} of {pagination.total||0}
+                </span>
+              </div>
+              <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                <span style={{ fontSize:12, color:'#8C8C8C' }}>Rows:</span>
+                <SelectBox value={filters.limit} onChange={e=>setFilter('limit',parseInt(e.target.value))} style={{ minWidth:70 }}>
+                  {[10,20,50,100].map(n=><option key={n} value={n}>{n}</option>)}
+                </SelectBox>
+              </div>
+            </div>
+
+            {loading ? (
+              <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center',
+                padding:'64px 24px', gap:14 }}>
+                <div style={{ width:36, height:36, borderRadius:'50%', border:'3px solid #F0F0F0',
+                  borderTopColor:'#1677FF', animation:'spin 0.7s linear infinite' }}/>
+                <p style={{ margin:0, fontSize:13, color:'#8C8C8C' }}>Loading orders…</p>
+              </div>
+            ) : orders.length === 0 ? (
+              <div style={{ textAlign:'center', padding:'64px 24px' }}>
+                <ShoppingCart size={44} color="#E0E0E0" style={{ marginBottom:12 }}/>
+                <h3 style={{ margin:'0 0 6px', fontSize:15, fontWeight:700, color:'#595959' }}>No orders found</h3>
+                <p style={{ margin:0, fontSize:13, color:'#BFBFBF' }}>Try adjusting your filters</p>
+                {activeFilterCount > 0 && (
+                  <button onClick={resetFilters} style={{ marginTop:12, fontSize:13, fontWeight:700,
+                    color:'#1677FF', background:'none', border:'none', cursor:'pointer', fontFamily:"'DM Sans',sans-serif" }}>
+                    Clear all filters
+                  </button>
+                )}
+              </div>
+            ) : (
+              <>
+                {/* ── Desktop table ── */}
+                <div className="ao-desktop" style={{ overflowX:'auto' }}>
+                  <table style={{ width:'100%', borderCollapse:'collapse', fontSize:13 }}>
+                    <thead>
+                      <tr style={{ background:'#FAFAFA', borderBottom:'1px solid #F0F0F0' }}>
+                        {['Order','Customer','Items','Amount','Status','Payment','Actions'].map(h=>(
+                          <th key={h} style={{ padding:'12px 16px', textAlign:'left', fontSize:11,
+                            fontWeight:700, color:'#BFBFBF', textTransform:'uppercase', letterSpacing:'0.05em', whiteSpace:'nowrap' }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {orders.map(order=>(
+                        <tr key={order.id} className="ao-row" style={{ borderBottom:'1px solid #F5F5F5', background:'#fff', transition:'background 0.12s' }}>
+                          {/* Order */}
+                          <td style={{ padding:'14px 16px' }}>
+                            <p style={{ margin:'0 0 3px', fontWeight:700, color:'#141414', fontSize:13 }}>
+                              {order.orderNumber || `#${order.id?.slice(0,8)}`}
+                            </p>
+                            <span style={{ display:'flex', alignItems:'center', gap:4, fontSize:11, color:'#BFBFBF' }}>
+                              <Calendar size={10}/>{fmtDate(order.createdAt)}
+                            </span>
+                            {order.shippingAddress?.city && (
+                              <span style={{ display:'flex', alignItems:'center', gap:4, fontSize:11, color:'#BFBFBF', marginTop:2 }}>
+                                <MapPin size={10}/>{order.shippingAddress.city}
+                              </span>
+                            )}
+                          </td>
+                          {/* Customer */}
+                          <td style={{ padding:'14px 16px' }}>
+                            <div style={{ display:'flex', alignItems:'center', gap:9 }}>
+                              <div style={{ width:32, height:32, borderRadius:9, flexShrink:0,
+                                background:'linear-gradient(135deg,#1677FF,#10B981)',
+                                display:'flex', alignItems:'center', justifyContent:'center' }}>
+                                <span style={{ fontSize:12, fontWeight:800, color:'#fff' }}>
+                                  {(order.customer?.firstName||'C')[0].toUpperCase()}
+                                </span>
+                              </div>
+                              <div style={{ minWidth:0 }}>
+                                <p style={{ margin:'0 0 2px', fontWeight:700, color:'#141414', whiteSpace:'nowrap',
+                                  overflow:'hidden', textOverflow:'ellipsis', maxWidth:120 }}>
+                                  {order.customer?.firstName||'Customer'}
+                                </p>
+                                <p style={{ margin:0, fontSize:11, color:'#8C8C8C' }}>{order.customer?.phone||'—'}</p>
+                              </div>
+                            </div>
+                          </td>
+                          {/* Items */}
+                          <td style={{ padding:'14px 16px' }}>
+                            <span style={{ display:'flex', alignItems:'center', gap:5, fontSize:13, fontWeight:600, color:'#262626' }}>
+                              <Package size={13} color="#BFBFBF"/>{itemCount(order)} item{itemCount(order)!==1?'s':''}
+                            </span>
+                          </td>
+                          {/* Amount */}
+                          <td style={{ padding:'14px 16px' }}>
+                            <p style={{ margin:0, fontWeight:800, color:'#141414', fontSize:14 }}>{fmtCurrency(order.totalPrice)}</p>
+                          </td>
+                          {/* Status */}
+                          <td style={{ padding:'14px 16px' }}>
+                            <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
+                              <StatusBadge status={order.status}/>
+                              {!order.isPaid && order.status!=='Cancelled' && (
+                                <span style={{ display:'flex', alignItems:'center', gap:4, fontSize:10, color:'#FF4D4F', fontWeight:600 }}>
+                                  <AlertTriangle size={10}/> Payment pending
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          {/* Payment */}
+                          <td style={{ padding:'14px 16px' }}>
+                            <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
+                              <PayBadge method={order.paymentMethod} isPaid={order.isPaid}/>
+                              <span style={{ fontSize:10, color:'#BFBFBF', fontWeight:600 }}>
+                                {order.isPaid?'✓ Paid':'✗ Unpaid'}
+                              </span>
+                            </div>
+                          </td>
+                          {/* Actions */}
+                          <td style={{ padding:'14px 16px' }}>
+                            <div style={{ display:'flex', gap:5 }}>
+                              <IconBtn onClick={()=>navigate(`/admin/order/${order.id}`)} title="View"
+                                bg="#F0F7FF" color="#1677FF" border="#BFDBFE">
+                                <Eye size={13}/>
+                              </IconBtn>
+                              <IconBtn title="More" bg="#FAFAFA" color="#8C8C8C" border="#E8E8E8">
+                                <MoreVertical size={13}/>
+                              </IconBtn>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* ── Mobile cards ── */}
+                <div className="ao-mobile" style={{ flexDirection:'column', display:'none' }}>
+                  {orders.map(order=>{
+                    const sc = getStatus(order.status);
+                    return (
+                      <div key={order.id} className="ao-card" style={{ padding:'14px 16px',
+                        borderBottom:'1px solid #F5F5F5', transition:'border-color 0.15s' }}>
+                        {/* Top row */}
+                        <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:8, marginBottom:10 }}>
+                          <div>
+                            <p style={{ margin:'0 0 3px', fontSize:14, fontWeight:800, color:'#141414' }}>
+                              {order.orderNumber||`#${order.id?.slice(0,8)}`}
+                            </p>
+                            <span style={{ display:'flex', alignItems:'center', gap:4, fontSize:11, color:'#BFBFBF' }}>
+                              <Calendar size={10}/>{fmtDate(order.createdAt)}
                             </span>
                           </div>
-                          <div className="flex items-center gap-2 text-sm text-gray-500">
-                            <Calendar size={14} />
-                            {order.createdAt}
-                          </div>
-                          {order.shippingAddress?.city && (
-                            <div className="flex items-center gap-2 text-sm text-gray-500">
-                              <MapPin size={14} />
-                              {order.shippingAddress.city}
-                            </div>
-                          )}
+                          <StatusBadge status={order.status} size="sm"/>
                         </div>
-                      </td>
 
-                      {/* Customer Column */}
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-emerald-100 rounded-lg flex items-center justify-center">
-                            <User className="text-emerald-600" size={20} />
+                        {/* Customer row */}
+                        <div style={{ display:'flex', alignItems:'center', gap:9, marginBottom:10 }}>
+                          <div style={{ width:32, height:32, borderRadius:9, flexShrink:0,
+                            background:'linear-gradient(135deg,#1677FF,#10B981)',
+                            display:'flex', alignItems:'center', justifyContent:'center' }}>
+                            <span style={{ fontSize:12, fontWeight:800, color:'#fff' }}>
+                              {(order.customer?.firstName||'C')[0].toUpperCase()}
+                            </span>
                           </div>
                           <div>
-                            <div className="font-medium text-gray-900">
-                              {order.customer?.firstName || 'Customer'}
-                            </div>
-                            <div className="text-sm text-gray-500">
-                              {order.customer?.phone || 'No phone'}
-                            </div>
+                            <p style={{ margin:0, fontSize:13, fontWeight:700, color:'#141414' }}>
+                              {order.customer?.firstName||'Customer'}
+                            </p>
+                            <p style={{ margin:0, fontSize:11, color:'#8C8C8C' }}>{order.customer?.phone||'—'}</p>
                           </div>
                         </div>
-                      </td>
 
-                      {/* Items Column */}
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-2">
-                          <Package className="text-gray-400" size={18} />
-                          <span className="font-medium text-gray-900">
-                            {getOrderItemsCount(order)} items
-                          </span>
-                        </div>
-                      </td>
-
-                      {/* Amount Column */}
-                      <td className="px-6 py-4">
-                        <div className="font-bold text-gray-900">
-                          {order.totalPrice?.toLocaleString('en-US', {
-                            style: 'currency',
-                            currency: 'USD'
-                          }) || '$0.00'}
-                        </div>
-                      </td>
-
-                      {/* Status Column */}
-                      <td className="px-6 py-4">
-                        <div className="space-y-2">
-                          {getStatusBadge(order)}
-                          {!order.isPaid && order.status !== 'Cancelled' && (
-                            <div className="text-xs text-red-600 flex items-center gap-1">
-                              <AlertTriangle size={12} />
-                              Payment pending
+                        {/* Detail grid */}
+                        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:10,
+                          padding:'10px 12px', background:'#FAFAFA', borderRadius:10 }}>
+                          <div>
+                            <p style={{ margin:'0 0 2px', fontSize:10, color:'#BFBFBF', textTransform:'uppercase', letterSpacing:'0.05em', fontWeight:700 }}>Amount</p>
+                            <p style={{ margin:0, fontSize:15, fontWeight:800, color:'#141414' }}>{fmtCurrency(order.totalPrice)}</p>
+                          </div>
+                          <div>
+                            <p style={{ margin:'0 0 2px', fontSize:10, color:'#BFBFBF', textTransform:'uppercase', letterSpacing:'0.05em', fontWeight:700 }}>Items</p>
+                            <p style={{ margin:0, fontSize:13, fontWeight:700, color:'#262626' }}>{itemCount(order)} item{itemCount(order)!==1?'s':''}</p>
+                          </div>
+                          <div>
+                            <p style={{ margin:'0 0 4px', fontSize:10, color:'#BFBFBF', textTransform:'uppercase', letterSpacing:'0.05em', fontWeight:700 }}>Payment</p>
+                            <PayBadge method={order.paymentMethod} isPaid={order.isPaid}/>
+                          </div>
+                          {order.shippingAddress?.city && (
+                            <div>
+                              <p style={{ margin:'0 0 2px', fontSize:10, color:'#BFBFBF', textTransform:'uppercase', letterSpacing:'0.05em', fontWeight:700 }}>Location</p>
+                              <span style={{ display:'flex', alignItems:'center', gap:4, fontSize:12, color:'#595959' }}>
+                                <MapPin size={11} color="#BFBFBF"/>{order.shippingAddress.city}
+                              </span>
                             </div>
                           )}
                         </div>
-                      </td>
 
-                      {/* Payment Column */}
-                      <td className="px-6 py-4">
-                        <div className="space-y-2">
-                          {getPaymentBadge(order.paymentMethod, order.isPaid)}
-                          <div className="text-xs text-gray-500">
-                            {order.isPaid ? 'Paid' : 'Unpaid'}
+                        {/* Payment warning */}
+                        {!order.isPaid && order.status!=='Cancelled' && (
+                          <div style={{ display:'flex', alignItems:'center', gap:6, fontSize:11, color:'#FF4D4F',
+                            fontWeight:600, padding:'6px 10px', background:'#FFF1F0', borderRadius:8, marginBottom:10 }}>
+                            <AlertTriangle size={11}/> Payment pending for this order
                           </div>
-                        </div>
-                      </td>
-
-                      {/* Actions Column */}
-                      <td className="px-6 py-4">
-                        <div className="flex items-center space-x-2">
-                          <button
-                            onClick={() => navigate(`/admin/order/${order.id}`)}
-                            className="p-1.5 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg"
-                            title="View Details"
-                          >
-                            <Eye size={18} />
-                          </button>
-                          <button className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-lg">
-                            <MoreVertical size={18} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan="7" className="px-6 py-12 text-center">
-                      <div className="flex flex-col items-center justify-center">
-                        <ShoppingCart className="w-12 h-12 text-gray-300 mb-4" />
-                        <p className="text-gray-500">No orders found</p>
-                        {(filters.search || filters.status !== 'all') && (
-                          <button
-                            onClick={resetFilters}
-                            className="mt-2 text-emerald-600 hover:text-emerald-700 font-medium text-sm"
-                          >
-                            Clear all filters
-                          </button>
                         )}
+
+                        {/* CTA */}
+                        <button onClick={()=>navigate(`/admin/order/${order.id}`)} style={{
+                          display:'flex', alignItems:'center', justifyContent:'center', gap:7, width:'100%',
+                          padding:'9px', borderRadius:9, background:'#F0F7FF', color:'#1677FF',
+                          border:'1.5px solid #BFDBFE', fontSize:13, fontWeight:700, cursor:'pointer',
+                          fontFamily:"'DM Sans',sans-serif",
+                        }}>
+                          <Eye size={14}/> View Order Details
+                        </button>
                       </div>
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+
+            {/* ── Pagination ── */}
+            {pagination.totalPages > 1 && (
+              <div className="ao-pg-footer" style={{ display:'flex', alignItems:'center', justifyContent:'space-between',
+                padding:'14px 20px', borderTop:'1px solid #F5F5F5', background:'#FAFAFA', gap:10 }}>
+                <span style={{ fontSize:12, color:'#8C8C8C' }}>
+                  Page <strong>{pagination.currentPage}</strong> of <strong>{pagination.totalPages}</strong>
+                </span>
+                <div style={{ display:'flex', gap:5, alignItems:'center' }}>
+                  {[
+                    { icon:<ChevronsLeft size={13}/>, action:()=>changePage(1), disabled:!pagination.hasPrevPage },
+                    { icon:<ChevronLeft  size={13}/>, action:()=>changePage(pagination.currentPage-1), disabled:!pagination.hasPrevPage },
+                  ].map((b,i)=>(
+                    <button key={i} onClick={b.action} disabled={b.disabled} style={{
+                      width:30, height:30, borderRadius:7, border:'1.5px solid #E8E8E8', background:'#fff',
+                      display:'flex', alignItems:'center', justifyContent:'center', color:'#595959',
+                      cursor:b.disabled?'not-allowed':'pointer', opacity:b.disabled?0.4:1 }}>{b.icon}</button>
+                  ))}
+                  {Array.from({length:Math.min(5,pagination.totalPages)},(_,i)=>{
+                    const pg = Math.max(1,Math.min(pagination.currentPage-2,pagination.totalPages-4))+i;
+                    if(pg<1||pg>pagination.totalPages) return null;
+                    const active=pg===pagination.currentPage;
+                    return (
+                      <button key={pg} onClick={()=>changePage(pg)} style={{
+                        width:30, height:30, borderRadius:7, fontSize:12, fontWeight:active?700:500,
+                        border:active?'1.5px solid #1677FF':'1.5px solid #E8E8E8',
+                        background:active?'#E6F4FF':'#fff', color:active?'#1677FF':'#595959', cursor:'pointer' }}>{pg}</button>
+                    );
+                  })}
+                  {[
+                    { icon:<ChevronRight  size={13}/>, action:()=>changePage(pagination.currentPage+1), disabled:!pagination.hasNextPage },
+                    { icon:<ChevronsRight size={13}/>, action:()=>changePage(pagination.totalPages),    disabled:!pagination.hasNextPage },
+                  ].map((b,i)=>(
+                    <button key={i} onClick={b.action} disabled={b.disabled} style={{
+                      width:30, height:30, borderRadius:7, border:'1.5px solid #E8E8E8', background:'#fff',
+                      display:'flex', alignItems:'center', justifyContent:'center', color:'#595959',
+                      cursor:b.disabled?'not-allowed':'pointer', opacity:b.disabled?0.4:1 }}>{b.icon}</button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* Pagination */}
-          {pagination.totalPages > 1 && (
-            <div className="px-6 py-4 border-t border-gray-200 bg-gray-50">
-              <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-                <div className="text-sm text-gray-700">
-                  Page <span className="font-medium">{pagination.currentPage}</span> of{' '}
-                  <span className="font-medium">{pagination.totalPages}</span>
+          {/* ── Bottom analytics row ── */}
+          {stats && orders.length > 0 && (
+            <div className="ao-bottom" style={{ display:'flex', gap:16, marginTop:18 }}>
+
+              {/* Status distribution */}
+              <div style={{ background:'#fff', borderRadius:14, border:'1px solid #F0F0F0', padding:'18px 20px',
+                boxShadow:'0 1px 4px rgba(0,0,0,0.04)', flex:'0 0 260px', animation:'fadeUp 0.4s ease 300ms both' }}
+                className="ao-status-dist">
+                <p style={{ margin:'0 0 14px', fontSize:14, fontWeight:700, color:'#141414' }}>Status Distribution</p>
+                <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+                  {Object.entries(STATUS_MAP).map(([label,cfg])=>{
+                    const count = orders.filter(o=>o.status===label).length;
+                    const pct   = orders.length ? (count/orders.length)*100 : 0;
+                    return (
+                      <div key={label}>
+                        <div style={{ display:'flex', justifyContent:'space-between', marginBottom:4 }}>
+                          <span style={{ display:'flex', alignItems:'center', gap:6, fontSize:12, color:'#262626' }}>
+                            <span style={{ width:8, height:8, borderRadius:'50%', background:cfg.dot, flexShrink:0, display:'inline-block' }}/>
+                            {label}
+                          </span>
+                          <span style={{ fontSize:12, fontWeight:700, color:'#141414' }}>{count}</span>
+                        </div>
+                        <div style={{ height:4, borderRadius:99, background:'#F0F0F0', overflow:'hidden' }}>
+                          <div style={{ height:'100%', width:`${pct}%`, borderRadius:99, background:cfg.dot, transition:'width 0.5s ease' }}/>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
-                <div className="flex items-center space-x-2">
-                  <button
-                    onClick={() => handlePageChange(1)}
-                    disabled={!pagination.hasPrevPage}
-                    className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <ChevronsLeft size={16} />
-                  </button>
-                  <button
-                    onClick={() => handlePageChange(pagination.currentPage - 1)}
-                    disabled={!pagination.hasPrevPage}
-                    className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <ChevronLeft size={16} />
-                  </button>
-                  
-                  {/* Page Numbers */}
-                  <div className="flex items-center space-x-1">
-                    {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, i) => {
-                      let pageNum;
-                      if (pagination.totalPages <= 5) {
-                        pageNum = i + 1;
-                      } else if (pagination.currentPage <= 3) {
-                        pageNum = i + 1;
-                      } else if (pagination.currentPage >= pagination.totalPages - 2) {
-                        pageNum = pagination.totalPages - 4 + i;
-                      } else {
-                        pageNum = pagination.currentPage - 2 + i;
-                      }
+              </div>
 
-                      return (
-                        <button
-                          key={pageNum}
-                          onClick={() => handlePageChange(pageNum)}
-                          className={`w-8 h-8 rounded-lg text-sm font-medium ${
-                            pagination.currentPage === pageNum
-                              ? 'bg-emerald-600 text-white'
-                              : 'border border-gray-300 hover:bg-gray-50'
-                          }`}
-                        >
-                          {pageNum}
+              {/* Recent activity */}
+              <div style={{ background:'#fff', borderRadius:14, border:'1px solid #F0F0F0', padding:'18px 20px',
+                boxShadow:'0 1px 4px rgba(0,0,0,0.04)', flex:1, minWidth:0,
+                animation:'fadeUp 0.4s ease 360ms both' }}>
+                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16 }}>
+                  <p style={{ margin:0, fontSize:14, fontWeight:700, color:'#141414' }}>Recent Activity</p>
+                  <span style={{ fontSize:11, color:'#BFBFBF' }}>{fmtDate(new Date())}</span>
+                </div>
+                <div style={{ display:'flex', flexDirection:'column', gap:0 }}>
+                  {orders.slice(0,5).map((order,i)=>(
+                    <div key={order.id} style={{ display:'flex', alignItems:'center', justifyContent:'space-between',
+                      padding:'12px 0', borderBottom: i<4 ? '1px solid #F5F5F5' : 'none', gap:12 }}>
+                      <div style={{ flex:1, minWidth:0 }}>
+                        <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:3, flexWrap:'wrap' }}>
+                          <span style={{ fontSize:13, fontWeight:700, color:'#141414' }}>
+                            {order.orderNumber||`#${order.id?.slice(0,8)}`}
+                          </span>
+                          <StatusBadge status={order.status} size="sm"/>
+                        </div>
+                        <span style={{ fontSize:11, color:'#8C8C8C' }}>
+                          {order.customer?.firstName||'Customer'} · {fmtDate(order.createdAt)}
+                        </span>
+                      </div>
+                      <div style={{ display:'flex', alignItems:'center', gap:10, flexShrink:0 }}>
+                        <span style={{ fontSize:14, fontWeight:800, color:'#141414' }}>{fmtCurrency(order.totalPrice)}</span>
+                        <button onClick={()=>navigate(`/admin/order/${order.id}`)} style={{
+                          width:28, height:28, borderRadius:7, background:'#F0F7FF', color:'#1677FF',
+                          border:'1.5px solid #BFDBFE', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer',
+                        }}>
+                          <Eye size={12}/>
                         </button>
-                      );
-                    })}
-                  </div>
-
-                  <button
-                    onClick={() => handlePageChange(pagination.currentPage + 1)}
-                    disabled={!pagination.hasNextPage}
-                    className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <ChevronRight size={16} />
-                  </button>
-                  <button
-                    onClick={() => handlePageChange(pagination.totalPages)}
-                    disabled={!pagination.hasNextPage}
-                    className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <ChevronsRight size={16} />
-                  </button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
           )}
         </div>
-
-        {/* Summary Stats */}
-        {stats && orders.length > 0 && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Order Status Distribution */}
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Order Status Distribution</h3>
-              <div className="space-y-3">
-                {statusOptions
-                  .filter(s => s.value !== 'all')
-                  .map((status) => {
-                    // Calculate count for each status (this would need actual data from backend)
-                    const count = orders.filter(order => order.status === status.value).length;
-                    const percentage = orders.length > 0 ? (count / orders.length) * 100 : 0;
-                    
-                    return (
-                      <div key={status.value} className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className={`w-3 h-3 rounded-full ${status.bg.replace('100', '500')}`}></div>
-                          <span className="text-sm text-gray-700">{status.label}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium text-gray-900">{count}</span>
-                          <span className="text-xs text-gray-500">({percentage.toFixed(1)}%)</span>
-                        </div>
-                      </div>
-                    );
-                  })}
-              </div>
-            </div>
-
-            {/* Recent Activity */}
-            <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-900">Recent Activity</h3>
-                <span className="text-sm text-gray-500">{formatDate(new Date())}</span>
-              </div>
-              <div className="space-y-4">
-                {orders.slice(0, 3).map((order) => (
-                  <div key={order.id} className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0">
-                    <div>
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="font-medium text-gray-900">
-                          Order #{order.orderNumber || order.id?.substring(0, 8)}
-                        </span>
-                        {getStatusBadge(order)}
-                      </div>
-                      <p className="text-sm text-gray-500">
-                        {order.customer?.firstName || 'Customer'} • {formatShortDate(order.createdAt)}
-                      </p>
-                    </div>
-                    <div className="font-bold text-gray-900">
-                      {order.totalPrice?.toLocaleString('en-US', {
-                        style: 'currency',
-                        currency: 'USD'
-                      }) || '$0.00'}
-                    </div>
-                  </div>
-                ))}
-              </div>
-              {orders.length > 3 && (
-                <div className="mt-4 pt-4 border-t border-gray-200">
-                  <button
-                    onClick={() => navigate('/admin/orders')}
-                    className="text-sm text-emerald-600 hover:text-emerald-700 font-medium"
-                  >
-                    View all orders →
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
       </div>
     </AdminLayout>
   );

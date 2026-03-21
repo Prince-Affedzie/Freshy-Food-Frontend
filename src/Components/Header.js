@@ -6,7 +6,7 @@ import { FiShoppingCart, FiMenu, FiX } from 'react-icons/fi';
 const Header = ({ basket }) => {
   const [isMenuOpen, setIsMenuOpen] = React.useState(false);
   
-  const itemCount = basket.items.reduce((count, item) => count + item.quantity, 0);
+  const itemCount = 0  //basket.items.reduce((count, item) => count + item.quantity, 0);
 
   return (
     <header className="header">

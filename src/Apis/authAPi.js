@@ -2,17 +2,6 @@ import axios from 'axios';
 import { API } from './apiConfig';
 
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
-
-// Configure axios defaults
-const api = axios.create({
-  baseURL: API_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-  withCredentials: true, // Important for cookies
-});
-
 // Request interceptor to add token
 API.interceptors.request.use(
   (config) => {

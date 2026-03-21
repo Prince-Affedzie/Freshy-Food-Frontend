@@ -1,522 +1,419 @@
 // src/AdminPages/Dashboard.jsx
 import React, { useState, useEffect } from 'react';
-import { 
-  Users, 
-  ShoppingBag, 
-  Package, 
-  DollarSign, 
-  TrendingUp, 
-  TrendingDown,
-  AlertCircle,
-  CheckCircle,
-  Clock,
-  XCircle,
-  BarChart3,
-  RefreshCw,
-  ShoppingCart,
-  Star,
-  Eye,
-  ArrowUpRight,
-  ArrowDownRight
+import {
+  Users, ShoppingBag, Package, DollarSign,
+  TrendingUp, TrendingDown, AlertCircle, CheckCircle,
+  Clock, XCircle, BarChart3, RefreshCw, ShoppingCart,
+  Star, ArrowUpRight, ArrowDownRight
 } from 'lucide-react';
 import { fetchDashboardData } from '../Apis/adminApi';
 import LoadingSpinner from '../Components/LoadingSpinner';
 import AdminLayout from '../Components/AdminComponents/adminLayout';
 
+// ─── tiny helpers ────────────────────────────────────────────────────────────
+const fmt = (n) =>
+  new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 }).format(n);
+
+const fmtDate = (d) =>
+  new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+const STATUS_MAP = {
+  pending:    { bg: '#FFFBE6', color: '#D48806', border: '#FFE58F' },
+  processing: { bg: '#E6F4FF', color: '#1677FF', border: '#91CAFF' },
+  shipped:    { bg: '#F0F5FF', color: '#2F54EB', border: '#ADC6FF' },
+  delivered:  { bg: '#F6FFED', color: '#389E0D', border: '#B7EB8F' },
+  cancelled:  { bg: '#FFF1F0', color: '#CF1322', border: '#FFA39E' },
+  paid:       { bg: '#F6FFED', color: '#389E0D', border: '#B7EB8F' },
+  failed:     { bg: '#FFF1F0', color: '#CF1322', border: '#FFA39E' },
+  refunded:   { bg: '#F9F0FF', color: '#531DAB', border: '#D3ADF7' },
+};
+const statusStyle = (s = '') => STATUS_MAP[s.toLowerCase()] ?? { bg: '#FAFAFA', color: '#595959', border: '#D9D9D9' };
+
+// ─── Skeleton ────────────────────────────────────────────────────────────────
+const Skel = ({ w = '100%', h = 16, r = 6 }) => (
+  <div style={{ width: w, height: h, borderRadius: r, background: 'linear-gradient(90deg,#F5F5F5 25%,#EBEBEB 50%,#F5F5F5 75%)', backgroundSize: '200% 100%', animation: 'shimmer 1.4s infinite' }} />
+);
+
+// ─── Stat Card ───────────────────────────────────────────────────────────────
+const StatCard = ({ icon: Icon, label, value, sub, subIcon: SubIcon, accent, delay = 0 }) => (
+  <div style={{
+    background: '#fff', borderRadius: 14, border: '1px solid #F0F0F0',
+    padding: '22px 24px', display: 'flex', flexDirection: 'column', gap: 14,
+    boxShadow: '0 1px 4px rgba(0,0,0,0.05)',
+    animation: `fadeUp 0.4s ease ${delay}ms both`,
+    borderTop: `3px solid ${accent}`,
+  }}>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <div style={{ width: 42, height: 42, borderRadius: 10, background: accent + '18', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <Icon size={20} color={accent} />
+      </div>
+      <span style={{ fontSize: 11, fontWeight: 700, color: '#BFBFBF', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</span>
+    </div>
+    <div>
+      <div style={{ fontSize: 28, fontWeight: 800, color: '#141414', letterSpacing: '-0.5px', lineHeight: 1 }}>{value}</div>
+      {sub && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 8 }}>
+          {SubIcon && <SubIcon size={13} color={accent} />}
+          <span style={{ fontSize: 12, color: '#8C8C8C' }}>{sub}</span>
+        </div>
+      )}
+    </div>
+  </div>
+);
+
+// ─── Section wrapper ─────────────────────────────────────────────────────────
+const Section = ({ title, icon: Icon, children, delay = 0 }) => (
+  <div style={{
+    background: '#fff', borderRadius: 14, border: '1px solid #F0F0F0',
+    overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.05)',
+    animation: `fadeUp 0.4s ease ${delay}ms both`,
+  }}>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 22px', borderBottom: '1px solid #F5F5F5' }}>
+      <span style={{ fontSize: 14, fontWeight: 700, color: '#141414', fontFamily: "'DM Sans', sans-serif" }}>{title}</span>
+      {Icon && <Icon size={17} color="#BFBFBF" />}
+    </div>
+    <div style={{ padding: '18px 22px' }}>{children}</div>
+  </div>
+);
+
+// ─── StatusBadge ─────────────────────────────────────────────────────────────
+const StatusBadge = ({ status }) => {
+  const st = statusStyle(status);
+  return (
+    <span style={{
+      padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700,
+      background: st.bg, color: st.color, border: `1px solid ${st.border}`,
+      textTransform: 'capitalize', whiteSpace: 'nowrap',
+    }}>{status}</span>
+  );
+};
+
+// ─── Main Component ──────────────────────────────────────────────────────────
 const Dashboard = () => {
   const [dashboardData, setDashboardData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [lastUpdated, setLastUpdated] = useState(null);
+  const [loading, setLoading]             = useState(true);
+  const [error, setError]                 = useState(null);
+  const [lastUpdated, setLastUpdated]     = useState(null);
 
-  const loadDashboardData = async () => {
-    setLoading(true);
-    setError(null);
-    
+  const load = async () => {
+    setLoading(true); setError(null);
     try {
-      const response = await fetchDashboardData();
-      setDashboardData(response.data.data);
+      const res = await fetchDashboardData();
+      setDashboardData(res.data.data);
       setLastUpdated(new Date());
-    } catch (err) {
+    } catch {
       setError('Failed to load dashboard data. Please try again.');
-      console.error('Dashboard error:', err);
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   };
 
-  useEffect(() => {
-    loadDashboardData();
-  }, []);
+  useEffect(() => { load(); }, []);
 
-  // Format currency
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(amount);
-  };
-
-  // Format date
-  const formatDate = (date) => {
-    return new Date(date).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
-
-  // Get status badge color
-  const getStatusColor = (status) => {
-    const colors = {
-      pending: 'bg-yellow-100 text-yellow-800',
-      processing: 'bg-blue-100 text-blue-800',
-      shipped: 'bg-indigo-100 text-indigo-800',
-      delivered: 'bg-green-100 text-green-800',
-      cancelled: 'bg-red-100 text-red-800',
-      paid: 'bg-green-100 text-green-800',
-      failed: 'bg-red-100 text-red-800',
-      refunded: 'bg-purple-100 text-purple-800',
-    };
-    return colors[status] || 'bg-gray-100 text-gray-800';
-  };
-
-  // Calculate percentage change
-  const calculateChange = (today, total, type) => {
-    if (total === 0) return { value: 0, direction: 'neutral' };
-    const percentage = ((today / total) * 100).toFixed(1);
-    return {
-      value: percentage,
-      direction: percentage > 20 ? 'up' : percentage > 5 ? 'neutral' : 'down'
-    };
-  };
-
-  if (loading && !dashboardData) {
-    return (
-      <AdminLayout title="Dashboard">
-        <div className="min-h-screen flex items-center justify-center">
-          <LoadingSpinner size="large" message="Loading dashboard data..." />
-        </div>
-      </AdminLayout>
-    );
-  }
+  const d = dashboardData;
 
   return (
     <AdminLayout title="Dashboard">
-      <div className="min-h-screen bg-gray-50 p-4 md:p-6">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap');
+        @keyframes fadeUp   { from { opacity:0; transform:translateY(12px) } to { opacity:1; transform:translateY(0) } }
+        @keyframes shimmer  { to { background-position: -200% 0 } }
+        @keyframes spin     { to { transform: rotate(360deg) } }
+        .dash-btn:hover     { background: #F5F5F5 !important; }
+        .dash-row:hover     { background: #FAFCFF !important; }
+        .dash-prod:hover    { background: #F5F9FF !important; }
+      `}</style>
+
+      <div style={{ fontFamily: "'DM Sans', sans-serif", background: '#FAFAFA', minHeight: '100vh', padding: '28px 20px', color: '#262626' }}>
+        <div style={{ maxWidth: 1200, margin: '0 auto' }}>
+
+          {/* ── Header ── */}
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 28, flexWrap: 'wrap', gap: 12, animation: 'fadeUp 0.3s ease both' }}>
             <div>
-              <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
-                Dashboard Overview
-              </h1>
-              <p className="text-gray-600 mt-2">
-                Welcome back! Here's what's happening with your store today.
+              <h1 style={{ margin: 0, fontSize: 26, fontWeight: 800, color: '#141414', letterSpacing: '-0.5px' }}>Dashboard</h1>
+              <p style={{ margin: '4px 0 0', fontSize: 13, color: '#8C8C8C' }}>
+                Welcome back! Here's what's happening with your store.
               </p>
             </div>
-            <div className="flex items-center gap-3">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               {lastUpdated && (
-                <div className="text-sm text-gray-500">
-                  Last updated: {formatDate(lastUpdated)}
-                </div>
+                <span style={{ fontSize: 11, color: '#BFBFBF' }}>Updated {fmtDate(lastUpdated)}</span>
               )}
-              <button
-                onClick={loadDashboardData}
-                disabled={loading}
-                className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
+              <button className="dash-btn" onClick={load} disabled={loading} style={{
+                display: 'flex', alignItems: 'center', gap: 7, padding: '8px 16px',
+                border: '1.5px solid #E8E8E8', borderRadius: 9, background: '#fff',
+                fontSize: 13, fontWeight: 600, cursor: 'pointer', color: '#595959',
+                fontFamily: "'DM Sans', sans-serif", transition: 'background 0.15s',
+                opacity: loading ? 0.6 : 1,
+              }}>
+                <RefreshCw size={15} style={{ animation: loading ? 'spin 0.7s linear infinite' : 'none' }} />
                 Refresh
               </button>
             </div>
           </div>
-        </div>
 
-        {/* Error Alert */}
-        {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-3">
-            <AlertCircle className="text-red-600" size={20} />
-            <span className="text-red-800">{error}</span>
-            <button
-              onClick={loadDashboardData}
-              className="ml-auto text-sm text-red-600 hover:text-red-800 font-medium"
-            >
-              Try Again
-            </button>
-          </div>
-        )}
+          {/* ── Error ── */}
+          {error && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 18px', background: '#FFF1F0', border: '1px solid #FFA39E', borderRadius: 10, marginBottom: 22, animation: 'fadeUp 0.3s ease both' }}>
+              <AlertCircle size={18} color="#FF4D4F" />
+              <span style={{ flex: 1, fontSize: 13, color: '#CF1322' }}>{error}</span>
+              <button onClick={load} style={{ fontSize: 12, fontWeight: 700, color: '#FF4D4F', background: 'none', border: 'none', cursor: 'pointer', fontFamily: "'DM Sans', sans-serif" }}>Retry</button>
+            </div>
+          )}
 
-        {/* Overview Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {/* Total Revenue Card */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="p-3 bg-emerald-100 rounded-lg">
-                <DollarSign className="text-emerald-600" size={24} />
-              </div>
-              <div className="text-sm text-gray-500">Total Revenue</div>
-            </div>
-            <div className="mb-2">
-              <div className="text-2xl font-bold text-gray-900">
-                {dashboardData ? formatCurrency(dashboardData.overview.totalRevenue) : '$0.00'}
-              </div>
-              {dashboardData && (
-                <div className="flex items-center gap-1 mt-2">
-                  <div className="text-sm text-gray-600">Today:</div>
-                  <div className="text-sm font-medium text-green-600">
-                    {formatCurrency(dashboardData.overview.todayRevenue)}
-                  </div>
-                  <ArrowUpRight className="text-green-500" size={16} />
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Total Orders Card */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="p-3 bg-blue-100 rounded-lg">
-                <ShoppingBag className="text-blue-600" size={24} />
-              </div>
-              <div className="text-sm text-gray-500">Total Orders</div>
-            </div>
-            <div className="mb-2">
-              <div className="text-2xl font-bold text-gray-900">
-                {dashboardData?.overview.totalOrders || 0}
-              </div>
-              {dashboardData && (
-                <div className="flex items-center gap-1 mt-2">
-                  <div className="text-sm text-gray-600">Today:</div>
-                  <div className="text-sm font-medium text-blue-600">
-                    {dashboardData.overview.todayOrders}
-                  </div>
-                  {calculateChange(
-                    dashboardData.overview.todayOrders,
-                    dashboardData.overview.totalOrders,
-                    'orders'
-                  ).direction === 'up' ? (
-                    <ArrowUpRight className="text-blue-500" size={16} />
-                  ) : (
-                    <ArrowDownRight className="text-red-500" size={16} />
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Total Users Card */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="p-3 bg-purple-100 rounded-lg">
-                <Users className="text-purple-600" size={24} />
-              </div>
-              <div className="text-sm text-gray-500">Total Users</div>
-            </div>
-            <div className="text-2xl font-bold text-gray-900">
-              {dashboardData?.overview.totalUsers || 0}
-            </div>
-            <div className="text-sm text-gray-500 mt-2">
-              Registered customers
-            </div>
-          </div>
-
-          {/* Total Products Card */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="p-3 bg-amber-100 rounded-lg">
-                <Package className="text-amber-600" size={24} />
-              </div>
-              <div className="text-sm text-gray-500">Total Products</div>
-            </div>
-            <div className="text-2xl font-bold text-gray-900">
-              {dashboardData?.overview.totalProducts || 0}
-            </div>
-            {dashboardData && dashboardData.products && (
-              <div className="flex items-center gap-2 mt-2">
-                <div className="text-sm text-red-600 font-medium">
-                  {dashboardData.products.outOfStock.length} out of stock
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Main Content Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-          {/* Left Column - Orders & Payments */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Orders Status */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-lg font-semibold text-gray-900">Orders Status</h2>
-                <ShoppingCart size={20} className="text-gray-400" />
-              </div>
-              
-              {dashboardData?.orders?.byStatus ? (
-                <div className="space-y-4">
-                  {dashboardData.orders.byStatus.map((status) => (
-                    <div key={status._id} className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(status._id)}`}>
-                          {status._id.charAt(0).toUpperCase() + status._id.slice(1)}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-4">
-                        <div className="w-32 bg-gray-200 rounded-full h-2">
-                          <div 
-                            className="bg-emerald-500 h-2 rounded-full"
-                            style={{ 
-                              width: `${(status.count / dashboardData.overview.totalOrders) * 100}%` 
-                            }}
-                          ></div>
-                        </div>
-                        <span className="font-medium">{status.count}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-8 text-gray-500">
-                  No order data available
-                </div>
-              )}
-            </div>
-
-            {/* Recent Orders */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-lg font-semibold text-gray-900">Recent Orders</h2>
-                <Clock size={20} className="text-gray-400" />
-              </div>
-              
-              {dashboardData?.orders?.recent?.length ? (
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="text-left text-sm font-medium text-gray-500 border-b">
-                        <th className="pb-3">Customer</th>
-                        <th className="pb-3">Date</th>
-                        <th className="pb-3">Amount</th>
-                        <th className="pb-3">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {dashboardData.orders.recent.map((order) => (
-                        <tr key={order._id} className="border-b last:border-0">
-                          <td className="py-4">
-                            <div>
-                              <div className="font-medium">
-                                {order.user?.firstName || 'Unknown'}
-                              </div>
-                              <div className="text-sm text-gray-500">
-                                {order.user?.email || 'No email'}
-                              </div>
-                            </div>
-                          </td>
-                          <td className="py-4 text-gray-600">
-                            {formatDate(order.createdAt)}
-                          </td>
-                          <td className="py-4 font-medium">
-                            {formatCurrency(order.totalPrice)}
-                          </td>
-                          <td className="py-4">
-                            <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(order.status)}`}>
-                              {order.status}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <div className="text-center py-8 text-gray-500">
-                  No recent orders
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Right Column - Products & Alerts */}
-          <div className="space-y-6">
-            {/* Stock Alerts */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-lg font-semibold text-gray-900">Stock Alerts</h2>
-                <AlertCircle size={20} className="text-amber-500" />
-              </div>
-              
-              <div className="space-y-4">
-                {/* Low Stock */}
-                {dashboardData?.products?.lowStock?.length ? (
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <h3 className="font-medium text-amber-700">Low Stock ({dashboardData.products.lowStock.length})</h3>
-                      <TrendingDown size={16} className="text-amber-500" />
-                    </div>
-                    <div className="space-y-2">
-                      {dashboardData.products.lowStock.slice(0, 3).map((product) => (
-                        <div key={product._id} className="flex items-center justify-between p-3 bg-amber-50 rounded-lg">
-                          <div>
-                            <div className="font-medium">{product.name}</div>
-                            <div className="text-sm text-amber-700">
-                              {product.countInStock} units left
-                            </div>
-                          </div>
-                          <div className="font-medium">
-                            {formatCurrency(product.price)}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ) : null}
-
-                {/* Out of Stock */}
-                {dashboardData?.products?.outOfStock?.length ? (
-                  <div>
-                    <div className="flex items-center justify-between mb-2 mt-4">
-                      <h3 className="font-medium text-red-700">Out of Stock ({dashboardData.products.outOfStock.length})</h3>
-                      <XCircle size={16} className="text-red-500" />
-                    </div>
-                    <div className="space-y-2">
-                      {dashboardData.products.outOfStock.slice(0, 3).map((product) => (
-                        <div key={product._id} className="flex items-center justify-between p-3 bg-red-50 rounded-lg">
-                          <div className="font-medium">{product.name}</div>
-                          <div className="font-medium text-red-700">
-                            {formatCurrency(product.price)}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ) : null}
-
-                {(!dashboardData?.products?.lowStock?.length && !dashboardData?.products?.outOfStock?.length) && (
-                  <div className="text-center py-4">
-                    <CheckCircle size={32} className="text-green-500 mx-auto mb-2" />
-                    <p className="text-gray-500">All products are well stocked</p>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Top Selling Products */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-lg font-semibold text-gray-900">Top Selling Products</h2>
-                <Star size={20} className="text-amber-400" />
-              </div>
-              
-              {dashboardData?.products?.topSelling?.length ? (
-                <div className="space-y-4">
-                  {dashboardData.products.topSelling.map((product, index) => (
-                    <div key={index} className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition-colors">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-emerald-100 rounded-lg flex items-center justify-center">
-                          <span className="font-medium text-emerald-600">
-                            {index + 1}
-                          </span>
-                        </div>
-                        <div>
-                          <div className="font-medium">{product.name}</div>
-                          <div className="text-sm text-gray-500">
-                            {product.totalSold} sold
-                          </div>
-                        </div>
-                      </div>
-                      <TrendingUp size={18} className="text-green-500" />
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-8 text-gray-500">
-                  No sales data available
-                </div>
-              )}
-            </div>
-
-            {/* Quick Stats */}
-            <div className="bg-gradient-to-r from-emerald-600 to-green-600 rounded-xl p-6 text-white">
-              <h3 className="font-semibold mb-4">Today's Performance</h3>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <span>Orders</span>
-                  <span className="font-bold">{dashboardData?.overview.todayOrders || 0}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span>Revenue</span>
-                  <span className="font-bold">
-                    {dashboardData ? formatCurrency(dashboardData.overview.todayRevenue) : '$0.00'}
-                  </span>
-                </div>
-                <div className="pt-4 border-t border-emerald-500">
-                  <div className="flex items-center gap-2">
-                    <BarChart3 size={18} />
-                    <span className="text-sm">Daily average: {formatCurrency((dashboardData?.overview.todayRevenue || 0) / 30)}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Payment Summary */}
-        {dashboardData?.payments?.summary && (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-lg font-semibold text-gray-900">Payment Summary</h2>
-              <DollarSign size={20} className="text-gray-400" />
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {dashboardData.payments.summary.map((payment) => (
-                <div key={payment._id} className="border border-gray-200 rounded-lg p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className={`px-2 py-1 rounded text-xs font-medium ${getStatusColor(payment._id)}`}>
-                      {payment._id.toUpperCase()}
-                    </span>
-                    <span className="text-sm text-gray-500">{payment.count} transactions</span>
-                  </div>
-                  <div className="text-2xl font-bold text-gray-900">
-                    {formatCurrency(payment.total)}
-                  </div>
-                  <div className="text-sm text-gray-500 mt-1">
-                    Average: {formatCurrency(payment.total / (payment.count || 1))}
-                  </div>
+          {/* ── Loading state ── */}
+          {loading && !d ? (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(220px,1fr))', gap: 16, marginBottom: 24 }}>
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} style={{ background: '#fff', borderRadius: 14, border: '1px solid #F0F0F0', padding: '22px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}><Skel w={42} h={42} r={10} /><Skel w={80} h={12} /></div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}><Skel w="60%" h={28} /><Skel w="80%" h={12} /></div>
                 </div>
               ))}
             </div>
-          </div>
-        )}
+          ) : (
+            <>
+              {/* ── Stat Cards ── */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(220px,1fr))', gap: 16, marginBottom: 24 }}>
+                <StatCard icon={DollarSign} label="Total Revenue" accent="#10B981"
+                  value={d ? fmt(d.overview.totalRevenue) : '$0.00'}
+                  sub={d ? `Today: ${fmt(d.overview.todayRevenue)}` : ''}
+                  subIcon={ArrowUpRight} delay={0} />
+                <StatCard icon={ShoppingBag} label="Total Orders" accent="#1677FF"
+                  value={d?.overview.totalOrders ?? 0}
+                  sub={d ? `Today: ${d.overview.todayOrders} new` : ''}
+                  subIcon={d && d.overview.todayOrders > 0 ? ArrowUpRight : ArrowDownRight}
+                  delay={60} />
+                <StatCard icon={Users} label="Total Users" accent="#7C3AED"
+                  value={d?.overview.totalUsers ?? 0}
+                  sub="Registered customers" delay={120} />
+                <StatCard icon={Package} label="Total Products" accent="#F59E0B"
+                  value={d?.overview.totalProducts ?? 0}
+                  sub={d?.products ? `${d.products.outOfStock.length} out of stock` : ''}
+                  subIcon={d?.products?.outOfStock.length ? AlertCircle : null}
+                  delay={180} />
+              </div>
 
-        {/* Footer Stats */}
-        <div className="bg-gray-900 text-white rounded-xl p-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="text-center">
-              <div className="text-3xl font-bold mb-2">
-                {dashboardData?.overview.totalOrders || 0}
+              {/* ── Main grid ── */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16, marginBottom: 24 }}>
+
+                {/* Orders Status – 1 col */}
+                <Section title="Order Status" icon={ShoppingCart} delay={220}>
+                  {d?.orders?.byStatus?.length ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                      {d.orders.byStatus.map((s) => {
+                        const pct = d.overview.totalOrders ? (s.count / d.overview.totalOrders) * 100 : 0;
+                        const st  = statusStyle(s._id);
+                        return (
+                          <div key={s._id}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
+                              <span style={{ fontSize: 12, fontWeight: 600, color: st.color, textTransform: 'capitalize' }}>{s._id}</span>
+                              <span style={{ fontSize: 12, fontWeight: 700, color: '#141414' }}>{s.count}</span>
+                            </div>
+                            <div style={{ height: 5, borderRadius: 99, background: '#F0F0F0', overflow: 'hidden' }}>
+                              <div style={{ height: '100%', width: `${pct}%`, borderRadius: 99, background: st.color, transition: 'width 0.6s ease' }} />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p style={{ textAlign: 'center', color: '#BFBFBF', fontSize: 13, margin: '24px 0' }}>No order data available</p>
+                  )}
+                </Section>
+
+                {/* Today's perf – 1 col */}
+                <div style={{
+                  borderRadius: 14, overflow: 'hidden', animation: 'fadeUp 0.4s ease 260ms both',
+                  background: 'linear-gradient(145deg, #0F172A 0%, #1E3A5F 100%)',
+                  boxShadow: '0 1px 4px rgba(0,0,0,0.12)',
+                }}>
+                  <div style={{ padding: '18px 22px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                    <span style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>Today's Performance</span>
+                  </div>
+                  <div style={{ padding: '22px' }}>
+                    {[
+                      { label: "Orders", value: d?.overview.todayOrders ?? 0, accent: '#60A5FA' },
+                      { label: "Revenue", value: d ? fmt(d.overview.todayRevenue) : '$0.00', accent: '#34D399' },
+                      { label: "Daily avg (÷30)", value: fmt((d?.overview.todayRevenue ?? 0) / 30), accent: '#FBBF24' },
+                    ].map((item, i) => (
+                      <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: 16, marginBottom: 16, borderBottom: i < 2 ? '1px solid rgba(255,255,255,0.06)' : 'none' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <div style={{ width: 7, height: 7, borderRadius: '50%', background: item.accent }} />
+                          <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)' }}>{item.label}</span>
+                        </div>
+                        <span style={{ fontSize: 16, fontWeight: 800, color: item.accent }}>{item.value}</span>
+                      </div>
+                    ))}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
+                      <BarChart3 size={14} color="rgba(255,255,255,0.3)" />
+                      <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)' }}>Live data · refreshes on demand</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Top Selling – 1 col */}
+                <Section title="Top Selling Products" icon={Star} delay={300}>
+                  {d?.products?.topSelling?.length ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                      {d.products.topSelling.map((p, i) => (
+                        <div key={i} className="dash-prod" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 10px', borderRadius: 9, cursor: 'default', transition: 'background 0.12s' }}>
+                          <div style={{ width: 28, height: 28, borderRadius: 8, background: '#F0FDF4', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                            <span style={{ fontSize: 12, fontWeight: 800, color: '#10B981' }}>{i + 1}</span>
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: 13, fontWeight: 600, color: '#141414', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</div>
+                            <div style={{ fontSize: 11, color: '#8C8C8C' }}>{p.totalSold} units sold</div>
+                          </div>
+                          <TrendingUp size={14} color="#10B981" />
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p style={{ textAlign: 'center', color: '#BFBFBF', fontSize: 13, margin: '24px 0' }}>No sales data</p>
+                  )}
+                </Section>
               </div>
-              <div className="text-gray-300">Total Orders</div>
-            </div>
-            <div className="text-center">
-              <div className="text-3xl font-bold mb-2">
-                {dashboardData ? formatCurrency(dashboardData.overview.totalRevenue) : '$0.00'}
+
+              {/* ── Recent Orders ── */}
+              <div style={{ marginBottom: 24, animation: 'fadeUp 0.4s ease 340ms both' }}>
+                <Section title="Recent Orders" icon={Clock} delay={0}>
+                  {d?.orders?.recent?.length ? (
+                    <div style={{ overflowX: 'auto' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                        <thead>
+                          <tr style={{ textAlign: 'left' }}>
+                            {['Customer', 'Email', 'Date', 'Amount', 'Status'].map((h) => (
+                              <th key={h} style={{ paddingBottom: 12, fontWeight: 700, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#BFBFBF', borderBottom: '1px solid #F0F0F0' }}>{h}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {d.orders.recent.map((order) => (
+                            <tr key={order._id} className="dash-row" style={{ borderBottom: '1px solid #F5F5F5', transition: 'background 0.12s' }}>
+                              <td style={{ padding: '14px 0', fontWeight: 600, color: '#141414' }}>
+                                {order.user?.firstName || 'Unknown'}
+                              </td>
+                              <td style={{ padding: '14px 10px 14px 0', color: '#8C8C8C', fontSize: 12 }}>
+                                {order.user?.email || '—'}
+                              </td>
+                              <td style={{ padding: '14px 10px 14px 0', color: '#8C8C8C', whiteSpace: 'nowrap', fontSize: 12 }}>
+                                {fmtDate(order.createdAt)}
+                              </td>
+                              <td style={{ padding: '14px 10px 14px 0', fontWeight: 700, color: '#141414' }}>
+                                {fmt(order.totalPrice)}
+                              </td>
+                              <td style={{ padding: '14px 0' }}>
+                                <StatusBadge status={order.status} />
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <p style={{ textAlign: 'center', color: '#BFBFBF', fontSize: 13, margin: '24px 0' }}>No recent orders</p>
+                  )}
+                </Section>
               </div>
-              <div className="text-gray-300">Total Revenue</div>
-            </div>
-            <div className="text-center">
-              <div className="text-3xl font-bold mb-2">
-                {dashboardData?.overview.totalUsers || 0}
+
+              {/* ── Bottom row: Stock Alerts + Payment Summary ── */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24 }}>
+
+                {/* Stock Alerts */}
+                <Section title="Stock Alerts" icon={AlertCircle} delay={380}>
+                  {d?.products?.lowStock?.length || d?.products?.outOfStock?.length ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+                      {d.products.lowStock?.length > 0 && (
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+                            <TrendingDown size={14} color="#FAAD14" />
+                            <span style={{ fontSize: 12, fontWeight: 700, color: '#D48806' }}>Low Stock ({d.products.lowStock.length})</span>
+                          </div>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+                            {d.products.lowStock.slice(0, 3).map((p) => (
+                              <div key={p._id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: '#FFFBE6', border: '1px solid #FFE58F', borderRadius: 9 }}>
+                                <div>
+                                  <div style={{ fontSize: 13, fontWeight: 600, color: '#262626' }}>{p.name}</div>
+                                  <div style={{ fontSize: 11, color: '#D48806' }}>{p.countInStock} units left</div>
+                                </div>
+                                <span style={{ fontSize: 13, fontWeight: 700, color: '#141414' }}>{fmt(p.price)}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {d.products.outOfStock?.length > 0 && (
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+                            <XCircle size={14} color="#FF4D4F" />
+                            <span style={{ fontSize: 12, fontWeight: 700, color: '#CF1322' }}>Out of Stock ({d.products.outOfStock.length})</span>
+                          </div>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+                            {d.products.outOfStock.slice(0, 3).map((p) => (
+                              <div key={p._id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: '#FFF1F0', border: '1px solid #FFA39E', borderRadius: 9 }}>
+                                <span style={{ fontSize: 13, fontWeight: 600, color: '#262626' }}>{p.name}</span>
+                                <span style={{ fontSize: 13, fontWeight: 700, color: '#CF1322' }}>{fmt(p.price)}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '24px 0', gap: 8 }}>
+                      <CheckCircle size={32} color="#52C41A" />
+                      <p style={{ margin: 0, color: '#8C8C8C', fontSize: 13 }}>All products are well stocked</p>
+                    </div>
+                  )}
+                </Section>
+
+                {/* Payment Summary */}
+                <Section title="Payment Summary" icon={DollarSign} delay={420}>
+                  {d?.payments?.summary?.length ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                      {d.payments.summary.map((pay) => {
+                        const st = statusStyle(pay._id);
+                        return (
+                          <div key={pay._id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', borderRadius: 10, border: `1px solid ${st.border}`, background: st.bg }}>
+                            <div>
+                              <StatusBadge status={pay._id} />
+                              <div style={{ fontSize: 11, color: '#8C8C8C', marginTop: 5 }}>{pay.count} transaction{pay.count !== 1 ? 's' : ''} · avg {fmt(pay.total / (pay.count || 1))}</div>
+                            </div>
+                            <div style={{ textAlign: 'right' }}>
+                              <div style={{ fontSize: 18, fontWeight: 800, color: '#141414' }}>{fmt(pay.total)}</div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p style={{ textAlign: 'center', color: '#BFBFBF', fontSize: 13, margin: '24px 0' }}>No payment data available</p>
+                  )}
+                </Section>
               </div>
-              <div className="text-gray-300">Registered Users</div>
-            </div>
-          </div>
+
+              {/* ── Footer summary strip ── */}
+              <div style={{
+                borderRadius: 14, overflow: 'hidden',
+                background: 'linear-gradient(135deg, #0F172A 0%, #1E3A5F 100%)',
+                display: 'grid', gridTemplateColumns: 'repeat(3,1fr)',
+                animation: 'fadeUp 0.4s ease 460ms both',
+              }}>
+                {[
+                  { label: 'Total Orders',   value: d?.overview.totalOrders ?? 0,         accent: '#60A5FA' },
+                  { label: 'Total Revenue',  value: d ? fmt(d.overview.totalRevenue) : '$0.00', accent: '#34D399' },
+                  { label: 'Registered Users', value: d?.overview.totalUsers ?? 0,        accent: '#C084FC' },
+                ].map((item, i) => (
+                  <div key={i} style={{
+                    padding: '24px 28px', textAlign: 'center',
+                    borderRight: i < 2 ? '1px solid rgba(255,255,255,0.06)' : 'none',
+                  }}>
+                    <div style={{ fontSize: 28, fontWeight: 800, color: item.accent, letterSpacing: '-0.5px' }}>{item.value}</div>
+                    <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', marginTop: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{item.label}</div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
         </div>
       </div>
     </AdminLayout>
