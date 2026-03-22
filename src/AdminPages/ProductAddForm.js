@@ -91,11 +91,14 @@ const ErrMsg = ({ msg }) => msg ? (
 ) : null;
 
 // Section card
+// NOTE: overflow:hidden intentionally removed so child dropdowns (e.g. tag picker)
+// can escape the card boundary. The header gets its own top border-radius instead.
 const Section = ({ title, icon: Icon, children, accent = '#1677FF' }) => (
   <div style={{ background:'#fff', borderRadius:14, border:'1px solid #F0F0F0',
-    overflow:'hidden', boxShadow:'0 1px 4px rgba(0,0,0,0.05)' }}>
+    boxShadow:'0 1px 4px rgba(0,0,0,0.05)' }}>
     <div style={{ display:'flex', alignItems:'center', gap:10, padding:'14px 20px',
-      borderBottom:'1px solid #F5F5F5', background:'#FAFAFA' }}>
+      borderBottom:'1px solid #F5F5F5', background:'#FAFAFA',
+      borderRadius:'14px 14px 0 0' }}>
       <div style={{ width:30, height:30, borderRadius:8, background:accent+'18',
         display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
         <Icon size={15} color={accent}/>
@@ -387,7 +390,7 @@ const ProductAddForm = () => {
               </div>
 
               {/* ── 3. Tags ── */}
-              <div style={{ animation:'fadeUp 0.4s ease 120ms both' }}>
+              <div style={{ animation:'fadeUp 0.4s ease 120ms both', position: 'relative', zIndex: 50}}>
                 <Section title="Product Tags" icon={Tag} accent="#7C3AED">
                   {/* Selected pills */}
                   {formData.tags.length > 0 && (
@@ -414,58 +417,112 @@ const ProductAddForm = () => {
                   {/* Tag search + dropdown */}
                   <div style={{ position:'relative' }}>
                     <div style={{ display:'flex', alignItems:'center', gap:8, padding:'10px 14px',
-                      border:'1.5px solid #E8E8E8', borderRadius:9, background:'#FAFAFA',
-                      transition:'border-color 0.15s' }}
-                      onClick={()=>setShowDropdown(true)}>
-                      <Tag size={14} color="#BFBFBF"/>
-                      <input value={tagSearch} onChange={e=>setTagSearch(e.target.value)}
-                        onFocus={()=>setShowDropdown(true)}
-                        onBlur={()=>setTimeout(()=>setShowDropdown(false),200)}
-                        placeholder={formData.tags.length===0 ? "Search or pick tags…" : "Add more tags…"}
+                      border:`1.5px solid ${showDropdown?'#1677FF':'#E8E8E8'}`, borderRadius:9, background:'#FAFAFA',
+                      transition:'border-color 0.15s', cursor:'text' }}
+                      onClick={()=>{ setShowDropdown(true); }}>
+                      <Tag size={14} color={showDropdown?'#1677FF':'#BFBFBF'}/>
+                      <input
+                        value={tagSearch}
+                        onChange={e => setTagSearch(e.target.value)}
+                        onFocus={() => setShowDropdown(true)}
+                        /* KEY FIX: onBlur closes the dropdown only if the next focused
+                           element is NOT inside the dropdown. We use a short timeout so
+                           onMouseDown on a tag button (which fires first) can call
+                           e.preventDefault() and keep focus on the input. */
+                        onBlur={() => setTimeout(() => setShowDropdown(false), 150)}
+                        placeholder={formData.tags.length === 0 ? 'Search or pick tags…' : 'Add more tags…'}
                         style={{ border:'none', outline:'none', background:'transparent', fontSize:13,
                           fontFamily:"'DM Sans',sans-serif", color:'#262626', flex:1, minWidth:0 }}
-                        disabled={loading}/>
-                      <ChevronDown size={14} color="#BFBFBF"/>
+                        disabled={loading}
+                      />
+                      <ChevronDown size={14} color="#BFBFBF"
+                        style={{ transform: showDropdown ? 'rotate(180deg)' : 'none', transition:'transform 0.2s' }}/>
                     </div>
 
                     {showDropdown && (
-                      <div style={{ position:'absolute', zIndex:200, top:'calc(100% + 6px)', left:0, right:0,
+                      <div style={{
+                        position:'absolute',
+                        /* zIndex 9999 ensures the dropdown floats above sticky headers,
+                           modals, and any other stacking contexts on the page */
+                        zIndex:9999,
+                        top:'calc(100% + 6px)', left:0, right:0,
                         background:'#fff', borderRadius:10, border:'1px solid #F0F0F0',
-                        boxShadow:'0 8px 32px rgba(0,0,0,0.12)', overflow:'hidden', animation:'fadeIn 0.15s ease' }}>
+                        boxShadow:'0 8px 32px rgba(0,0,0,0.14)', overflow:'hidden',
+                        maxHeight:280, overflowY:'auto',
+                        animation:'fadeIn 0.15s ease',
+                      }}>
                         {filteredTags.length === 0 ? (
-                          <p style={{ margin:0, padding:'14px 16px', fontSize:13, color:'#BFBFBF', textAlign:'center' }}>No matching tags</p>
+                          <p style={{ margin:0, padding:'14px 16px', fontSize:13, color:'#BFBFBF', textAlign:'center' }}>
+                            No matching tags
+                          </p>
                         ) : (
-                          <>
-                            {[['General', generalTags], ['Grocery-specific', groceryTags]].map(([groupLabel, group])=>
-                              group.length > 0 && (
-                                <div key={groupLabel}>
-                                  <p style={{ margin:0, padding:'10px 16px 6px', fontSize:10, fontWeight:800,
-                                    color:'#BFBFBF', textTransform:'uppercase', letterSpacing:'0.07em' }}>{groupLabel}</p>
-                                  {group.map(tag=>{
-                                    const sel = formData.tags.includes(tag.value);
-                                    return (
-                                      <button key={tag.value} type="button" onClick={()=>handleTagToggle(tag.value)}
-                                        className="paf-drop-item" style={{
-                                          display:'flex', alignItems:'center', gap:12, width:'100%',
-                                          padding:'10px 16px', background:sel?'#F0F7FF':'#fff',
-                                          border:'none', cursor:'pointer', textAlign:'left',
-                                          fontFamily:"'DM Sans',sans-serif", transition:'background 0.12s',
-                                        }}>
-                                        <div style={{ width:17, height:17, borderRadius:5, flexShrink:0,
-                                          border:`2px solid ${sel?'#1677FF':'#D9D9D9'}`,
-                                          background:sel?'#1677FF':'#fff',
-                                          display:'flex', alignItems:'center', justifyContent:'center' }}>
-                                          {sel && <CheckCircle size={11} color="#fff"/>}
-                                        </div>
-                                        <span style={{ fontSize:13, fontWeight:sel?700:500, color:sel?'#1677FF':'#262626' }}>{tag.label}</span>
-                                      </button>
-                                    );
-                                  })}
-                                </div>
-                              )
-                            )}
-                          </>
+                          [['General', generalTags], ['Grocery-specific', groceryTags]].map(([groupLabel, group]) =>
+                            group.length > 0 && (
+                              <div key={groupLabel}>
+                                <p style={{ margin:0, padding:'10px 16px 6px', fontSize:10, fontWeight:800,
+                                  color:'#BFBFBF', textTransform:'uppercase', letterSpacing:'0.07em' }}>
+                                  {groupLabel}
+                                </p>
+                                {group.map(tag => {
+                                  const sel = formData.tags.includes(tag.value);
+                                  return (
+                                    <button
+                                      key={tag.value}
+                                      type="button"
+                                      /* KEY FIX: onMouseDown fires BEFORE the input's onBlur.
+                                         e.preventDefault() stops the input from losing focus,
+                                         so the dropdown stays open and the toggle registers. */
+                                      onMouseDown={e => {
+                                        e.preventDefault();
+                                        handleTagToggle(tag.value);
+                                      }}
+                                      className="paf-drop-item"
+                                      style={{
+                                        display:'flex', alignItems:'center', gap:12, width:'100%',
+                                        padding:'10px 16px',
+                                        background: sel ? '#F0F7FF' : '#fff',
+                                        border:'none', cursor:'pointer', textAlign:'left',
+                                        fontFamily:"'DM Sans',sans-serif", transition:'background 0.12s',
+                                      }}
+                                    >
+                                      <div style={{
+                                        width:17, height:17, borderRadius:5, flexShrink:0,
+                                        border:`2px solid ${sel ? '#1677FF' : '#D9D9D9'}`,
+                                        background: sel ? '#1677FF' : '#fff',
+                                        display:'flex', alignItems:'center', justifyContent:'center',
+                                        transition:'all 0.15s',
+                                      }}>
+                                        {sel && <CheckCircle size={11} color="#fff"/>}
+                                      </div>
+                                      <span style={{ fontSize:13, fontWeight: sel ? 700 : 500,
+                                        color: sel ? '#1677FF' : '#262626' }}>
+                                        {tag.label}
+                                      </span>
+                                      {sel && (
+                                        <span style={{ marginLeft:'auto', fontSize:10, fontWeight:700,
+                                          color:'#1677FF', background:'#E6F4FF', padding:'1px 7px',
+                                          borderRadius:20, flexShrink:0 }}>
+                                          ✓
+                                        </span>
+                                      )}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            )
+                          )
                         )}
+                        {/* Close button at bottom */}
+                        <div style={{ padding:'8px 12px', borderTop:'1px solid #F5F5F5', background:'#FAFAFA' }}>
+                          <button
+                            type="button"
+                            onMouseDown={e => { e.preventDefault(); setShowDropdown(false); }}
+                            style={{ width:'100%', padding:'7px 0', fontSize:12, fontWeight:700,
+                              color:'#8C8C8C', background:'none', border:'none', cursor:'pointer',
+                              fontFamily:"'DM Sans',sans-serif" }}>
+                            Done
+                          </button>
+                        </div>
                       </div>
                     )}
                   </div>

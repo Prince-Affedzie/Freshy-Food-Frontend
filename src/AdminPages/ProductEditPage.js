@@ -6,6 +6,7 @@ import {
   ExclamationTriangleIcon, CurrencyDollarIcon, TagIcon,
   InformationCircleIcon, ArrowUpTrayIcon, ChevronDownIcon,
 } from '@heroicons/react/24/outline';
+
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { getProductById, updateProduct } from '../Apis/productApi';
@@ -294,7 +295,7 @@ const ProductEditPage = () => {
                 {formData.name && (
                   <span style={{ padding:'3px 10px', borderRadius:20, fontSize:11, fontWeight:700,
                     background:'#F0F7FF', color:'#1677FF', border:'1px solid #91CAFF',
-                    maxWidth:200, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                    maxWidth:200, textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
                     {formData.name}
                   </span>
                 )}
@@ -389,7 +390,8 @@ const ProductEditPage = () => {
                 </div>
 
                 {/* Tags */}
-                <div style={{ animation:'fadeUp 0.4s ease 60ms both' }}>
+                <div 
+                style={{ animation:'fadeUp 0.4s ease 60ms both',position: 'relative', zIndex: 50}}>
                   <Section title="Product Tags" icon={TagIcon} accent="#7C3AED">
                     {/* Selected pills */}
                     {formData.tags.length > 0 && (
@@ -422,50 +424,82 @@ const ProductEditPage = () => {
                         <TagIcon style={{ width:13, height:13, color:'#BFBFBF' }}/>
                         <input value={tagSearch} onChange={e=>setTagSearch(e.target.value)}
                           onFocus={()=>setShowDrop(true)}
-                          onBlur={()=>setTimeout(()=>setShowDrop(false),200)}
-                          placeholder={formData.tags.length===0?'Search or add tags…':'Add more tags…'}
-                          style={{ border:'none', outline:'none', background:'transparent', fontSize:13,
-                            fontFamily:"'DM Sans',sans-serif", color:'#262626', flex:1, minWidth:0 }}/>
+                          onBlur={() => setTimeout(() =>setShowDrop(false), 150)}
+                        placeholder={formData.tags.length === 0 ? 'Search or pick tags…' : 'Add more tags…'}
+                        style={{ border:'none', outline:'none', background:'transparent', fontSize:13,
+                          fontFamily:"'DM Sans',sans-serif", color:'#262626', flex:1, minWidth:0 }}/>
                         <ChevronDownIcon style={{ width:13, height:13, color:'#BFBFBF' }}/>
                       </div>
 
                       {showDrop && (
-                        <div style={{ position:'absolute', zIndex:200, top:'calc(100% + 6px)', left:0, right:0,
-                          background:'#fff', borderRadius:10, border:'1px solid #F0F0F0',
-                          boxShadow:'0 8px 32px rgba(0,0,0,0.12)', overflow:'hidden', animation:'fadeIn 0.15s ease' }}>
+                        <div style={{ 
+                        position:'absolute',
+                        zIndex:9999,
+                        top:'calc(100% + 6px)', left:0, right:0,
+                        background:'#fff', borderRadius:10, border:'1px solid #F0F0F0',
+                        boxShadow:'0 8px 32px rgba(0,0,0,0.14)', overflow:'hidden',
+                        maxHeight:280, overflowY:'auto',
+                        animation:'fadeIn 0.15s ease', 
+                        }}>
                           {filteredTags.length===0 ? (
                             <p style={{ margin:0, padding:'14px 16px', fontSize:13, color:'#BFBFBF', textAlign:'center' }}>No matching tags</p>
                           ) : (
-                            [['General', generalTags],['Grocery-specific', groceryTags]].map(([group, tags])=>
-                              tags.length>0 && (
-                                <div key={group}>
-                                  <p style={{ margin:0, padding:'10px 16px 6px', fontSize:10, fontWeight:800,
-                                    color:'#BFBFBF', textTransform:'uppercase', letterSpacing:'0.07em' }}>{group}</p>
-                                  {tags.map(tag=>{
-                                    const sel = formData.tags.includes(tag.value);
-                                    return (
-                                      <button key={tag.value} type="button"
-                                        onMouseDown={e=>{ e.preventDefault(); handleTagToggle(tag.value); }}
-                                        className="pep-drop-item" style={{
-                                          display:'flex', alignItems:'center', gap:10, width:'100%',
-                                          padding:'10px 16px', background:sel?'#F0F7FF':'#fff',
-                                          border:'none', cursor:'pointer', textAlign:'left',
-                                          fontFamily:"'DM Sans',sans-serif", transition:'background 0.12s',
-                                        }}>
-                                        <div style={{ width:17, height:17, borderRadius:5, flexShrink:0,
-                                          border:`2px solid ${sel?'#1677FF':'#D9D9D9'}`,
-                                          background:sel?'#1677FF':'#fff',
-                                          display:'flex', alignItems:'center', justifyContent:'center' }}>
-                                          {sel && <CheckCircleIcon style={{ width:11, height:11, color:'#fff' }}/>}
-                                        </div>
-                                        <span style={{ fontSize:13, fontWeight:sel?700:500, color:sel?'#1677FF':'#262626' }}>{tag.label}</span>
-                                      </button>
-                                    );
-                                  })}
-                                </div>
-                              )
+                          [['General', generalTags], ['Grocery-specific', groceryTags]].map(([groupLabel, group]) =>
+                            group.length > 0 && (
+                              <div key={groupLabel}>
+                                <p style={{ margin:0, padding:'10px 16px 6px', fontSize:10, fontWeight:800,
+                                  color:'#BFBFBF', textTransform:'uppercase', letterSpacing:'0.07em' }}>
+                                  {groupLabel}
+                                </p>
+                                {group.map(tag => {
+                                  const sel = formData.tags.includes(tag.value);
+                                  return (
+                                    <button
+                                      key={tag.value}
+                                      type="button"
+                                      /* KEY FIX: onMouseDown fires BEFORE the input's onBlur.
+                                         e.preventDefault() stops the input from losing focus,
+                                         so the dropdown stays open and the toggle registers. */
+                                      onMouseDown={e => {
+                                        e.preventDefault();
+                                        handleTagToggle(tag.value);
+                                      }}
+                                      className="paf-drop-item"
+                                      style={{
+                                        display:'flex', alignItems:'center', gap:12, width:'100%',
+                                        padding:'10px 16px',
+                                        background: sel ? '#F0F7FF' : '#fff',
+                                        border:'none', cursor:'pointer', textAlign:'left',
+                                        fontFamily:"'DM Sans',sans-serif", transition:'background 0.12s',
+                                      }}
+                                    >
+                                      <div style={{
+                                        width:17, height:17, borderRadius:5, flexShrink:0,
+                                        border:`2px solid ${sel ? '#1677FF' : '#D9D9D9'}`,
+                                        background: sel ? '#1677FF' : '#fff',
+                                        display:'flex', alignItems:'center', justifyContent:'center',
+                                        transition:'all 0.15s',
+                                      }}>
+                                        {sel && <CheckCircleIcon size={11} color="#fff"/>}
+                                      </div>
+                                      <span style={{ fontSize:13, fontWeight: sel ? 700 : 500,
+                                        color: sel ? '#1677FF' : '#262626' }}>
+                                        {tag.label}
+                                      </span>
+                                      {sel && (
+                                        <span style={{ marginLeft:'auto', fontSize:10, fontWeight:700,
+                                          color:'#1677FF', background:'#E6F4FF', padding:'1px 7px',
+                                          borderRadius:20, flexShrink:0 }}>
+                                          ✓
+                                        </span>
+                                      )}
+                                    </button>
+                                  );
+                                })}
+                              </div>
                             )
-                          )}
+                          )
+                        )}
                         </div>
                       )}
                     </div>
