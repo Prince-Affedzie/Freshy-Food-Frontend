@@ -226,20 +226,24 @@ const AdminSidebar = ({ isCollapsed, isMobile, isOpen, toggleSidebar }) => {
         @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap');
       `}</style>
 
-      {/* Mobile backdrop */}
+      {/* Mobile backdrop — zIndex 999 sits above ALL page content including sticky headers */}
       {isMobile && isOpen && (
         <div
           onClick={toggleSidebar}
-          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)',
-            zIndex: 39, backdropFilter: 'blur(2px)', transition: 'opacity 0.2s' }}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)',
+            zIndex: 999, backdropFilter: 'blur(3px)', transition: 'opacity 0.2s' }}
         />
       )}
 
       <aside style={{
         position: 'fixed', top: 0, left: 0, height: '100vh',
-        width: w, zIndex: 40, fontFamily: "'DM Sans',sans-serif",
+        width: w,
+        /* Desktop: 40 (above page content).
+           Mobile open: 1000 (above backdrop + ALL sticky headers/navbars). */
+        zIndex: isMobile && isOpen ? 1000 : 40,
+        fontFamily: "'DM Sans',sans-serif",
         background: '#fff', borderRight: '1px solid #F0F0F0',
-        boxShadow: isMobile && isOpen ? '4px 0 24px rgba(0,0,0,0.12)' : 'none',
+        boxShadow: isMobile && isOpen ? '8px 0 32px rgba(0,0,0,0.22)' : 'none',
         display: 'flex', flexDirection: 'column',
         transform: isMobile ? (isOpen ? 'translateX(0)' : 'translateX(-100%)') : 'translateX(0)',
         transition: 'width 0.25s ease, transform 0.25s ease',
