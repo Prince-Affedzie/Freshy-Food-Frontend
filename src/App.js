@@ -159,9 +159,9 @@ function App() {
         <Routes>
           {/* Public Routes */}
           <Route path="/" element={
-            <PublicLayout>
+            
               <HomePage />
-            </PublicLayout>
+            
           } />
           
           <Route path="/packages" element={
