@@ -37,6 +37,10 @@ import Dashboard from './AdminPages/Dashboard'
 import Payments from './AdminPages/Payments'
 import NotificationsPage from './AdminPages/Notifications'
 import PaymentDetail from './AdminPages/PaymentDetail';
+import AddVendorPage from './AdminPages/AddVendor'
+import VendorListPage from './AdminPages/Vendors'
+import EditVendorPage from './AdminPages/EditVendor'
+import VendorDetailsPage from './AdminPages/VendorDetails'
 import LoadingSpinner from './Components/LoadingSpinner';
 
 import './styles.css';
@@ -212,6 +216,37 @@ function App() {
               </AdminRoute>
            
           } />
+
+          <Route path="/admin/add-vendor" element={
+               <AdminRoute>
+              <AddVendorPage />
+              </AdminRoute>
+           
+          } />
+
+          <Route path="/admin/vendors" element={
+               <AdminRoute>
+              <VendorListPage />
+              </AdminRoute>
+           
+          } />
+
+          <Route path="/admin/vendor_edit/:id" element={
+               <AdminRoute>
+              <EditVendorPage />
+              </AdminRoute>
+           
+          } />
+
+           <Route path="/admin/vendor/:id" element={
+               <AdminRoute>
+              <VendorDetailsPage />
+              </AdminRoute>
+           
+          } />
+
+          
+          
           
           <Route path="/add-package" element={
               <AdminRoute>

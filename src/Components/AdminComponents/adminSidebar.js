@@ -37,6 +37,7 @@ const MENU = [
     ],
   },
   { id: 'users',         title: 'Users',         icon: Users,    route: '/admin/users'         },
+  { id: 'vendors',         title: 'Vendors',     icon: Users,    route: '/admin/vendors'         },
   { id: 'payments',      title: 'Payments',      icon: CreditCard, route: '/admin/payments'    },
   { id: 'analytics',     title: 'Analytics',     icon: BarChart2, route: '/admin/analytics'   },
   { id: 'notifications', title: 'Notifications', icon: Bell,     route: '/admin/notifications' },
