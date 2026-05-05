@@ -8,7 +8,7 @@ const Footer = () => {
       <div className="container">
         <div className="footer-content">
           <div className="footer-brand">
-            <h3>Freshy Food Factory</h3>
+            <h3>CediMart</h3>
             <p>Farm-fresh vegetables, fruits, and staples delivered weekly to your home.</p>
             <p className="copyright">
               © {new Date().getFullYear()} Fresh Harvest Basket. All rights reserved.
@@ -31,8 +31,8 @@ const Footer = () => {
             <div className="links-column">
               <h4>Contact</h4>
               <p>📍 City Delivery Area</p>
-              <p>📞 0800-FRESH-FOOD</p>
-              <p>✉️ hello@freshharvest.com</p>
+              <p>📞 0505671577</p>
+              <p>✉️ cedimart7@gmail.com</p>
             </div>
           </div>
         </div>

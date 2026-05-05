@@ -16,7 +16,7 @@ const Header = ({ basket }) => {
           <Link to="/" className="logo">
             <span className="logo-icon">🌱</span>
             <div>
-              <h1>Freshy Food Factory</h1>
+              <h1>CediMart</h1>
               <p className="tagline">Farm Fresh • Weekly Delivery</p>
             </div>
           </Link>
