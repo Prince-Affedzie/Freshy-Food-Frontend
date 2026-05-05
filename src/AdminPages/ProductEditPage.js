@@ -77,11 +77,14 @@ const Label = ({ children, required }) => (
   </p>
 );
 
+// Full corrected Section component
 const Section = ({ title, icon: Icon, accent='#1677FF', children, style={} }) => (
   <div style={{ background:'#fff', borderRadius:14, border:'1px solid #F0F0F0',
-    overflow:'hidden', boxShadow:'0 1px 4px rgba(0,0,0,0.05)', ...style }}>
+    boxShadow:'0 1px 4px rgba(0,0,0,0.05)', ...style }}>
     <div style={{ display:'flex', alignItems:'center', gap:9, padding:'13px 18px',
-      borderBottom:'1px solid #F5F5F5', background:'#FAFAFA' }}>
+      borderBottom:'1px solid #F5F5F5', background:'#FAFAFA',
+      borderRadius:'14px 14px 0 0',   // ← rounds only the top corners
+    }}>
       <div style={{ width:28, height:28, borderRadius:7, background:accent+'18',
         display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
         <Icon style={{ width:14, height:14, color:accent }}/>

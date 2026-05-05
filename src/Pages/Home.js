@@ -87,7 +87,7 @@ const HomePage = () => {
               <FaLeaf className="text-white text-sm" />
             </div>
             <span className="font-bold text-xl text-gray-900 tracking-tight">
-              FreshyFood Factory<span className="text-green-600"></span>
+              CediMart<span className="text-green-600"></span>
             </span>
           </div>
 
@@ -318,7 +318,7 @@ const HomePage = () => {
             We make grocery shopping effortless
           </h2>
           <p className="text-gray-500 max-w-lg mx-auto">
-            FreshyFood Factory was built to save you from market stress. 
+            CediMart was built to save you from market stress. 
             Order fresh food, groceries, and essentials from your phone — no traffic, 
             no queues, no haggling. Just affordable, convenient delivery straight to your door.
           </p>
