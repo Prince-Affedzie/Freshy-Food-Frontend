@@ -3,6 +3,17 @@ import { createVendor } from '../Apis/vendorApi';
 import toast from 'react-hot-toast';
 import AdminLayout from '../Components/AdminComponents/adminLayout';
 
+// Define the categories to match your backend enum
+const MARKET_CATEGORIES = [
+  'Tubers and Roots',
+  'Fruits',
+  'Vegetables',
+  'Grains, Cereals & Legumes',
+  'Meat',
+  'Cold Store',
+  'Super Market'
+];
+
 const AddVendorPage = () => {
   const [formData, setFormData] = useState({
     name: '',
@@ -11,6 +22,9 @@ const AddVendorPage = () => {
     location: '',
   });
 
+  // NEW: State for multi-select categories
+  const [selectedCategories, setSelectedCategories] = useState([]);
+  
   const [storeBanner, setStoreBanner] = useState(null);
   const [profileImage, setProfileImage] = useState(null);
   const [bannerPreview, setBannerPreview] = useState('');
@@ -23,6 +37,15 @@ const AddVendorPage = () => {
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  // NEW: Toggle function for category selection
+  const handleCategoryToggle = (category) => {
+    setSelectedCategories(prev =>
+      prev.includes(category)
+        ? prev.filter(c => c !== category)
+        : [...prev, category]
+    );
   };
 
   const handleFileChange = (e, type) => {
@@ -56,6 +79,11 @@ const AddVendorPage = () => {
       toast.error('Please fill in all required fields.');
       return false;
     }
+    // Added validation for categories
+    if (selectedCategories.length === 0) {
+      toast.error('Please select at least one category.');
+      return false;
+    }
     return true;
   };
 
@@ -69,6 +97,11 @@ const AddVendorPage = () => {
     payload.append('contact', formData.contact.trim());
     payload.append('location', formData.location.trim());
 
+    // NEW: Appending categories to FormData
+    selectedCategories.forEach(cat => {
+      payload.append('categories[]', cat);
+    });
+
     if (storeBanner) payload.append('store_banner', storeBanner);
     if (profileImage) payload.append('profile_image', profileImage);
 
@@ -78,13 +111,13 @@ const AddVendorPage = () => {
       if (res?.status === 201) {
         toast.success('Vendor created successfully!');
         setFormData({ name: '', market_name: '', contact: '', location: '' });
+        setSelectedCategories([]); // Reset categories on success
         setStoreBanner(null);
         setProfileImage(null);
         setBannerPreview('');
         setProfilePreview('');
         if (bannerInputRef.current) bannerInputRef.current.value = '';
         if (profileInputRef.current) profileInputRef.current.value = '';
-        console.log('Created vendor:', res.data);
       }
     } catch (error) {
       const message = error?.message || 'Something went wrong.';
@@ -176,7 +209,31 @@ const AddVendorPage = () => {
               </div>
             </div>
 
-            {/* File Uploads */}
+            {/* NEW: Category Selection UI inserted here */}
+            <div className="mb-8">
+              <label className="block text-sm font-medium text-gray-700 mb-3">
+                Vendor Categories <span className="text-red-500">*</span>
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {MARKET_CATEGORIES.map((category) => (
+                  <button
+                    key={category}
+                    type="button"
+                    onClick={() => handleCategoryToggle(category)}
+                    className={`px-4 py-2 rounded-full text-xs font-medium transition-all border ${
+                      selectedCategories.includes(category)
+                        ? 'bg-emerald-500 text-white border-emerald-500 shadow-md shadow-emerald-100'
+                        : 'bg-white text-gray-600 border-gray-200 hover:border-emerald-300'
+                    }`}
+                  >
+                    {category}
+                  </button>
+                ))}
+              </div>
+              <p className="mt-2 text-xs text-gray-500 italic">Select all categories that apply to this vendor.</p>
+            </div>
+
+            {/* File Uploads - Restored all original SVGs and logic */}
             <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 mb-8">
               {/* Store Banner */}
               <div>

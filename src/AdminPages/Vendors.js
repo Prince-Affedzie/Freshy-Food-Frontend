@@ -345,6 +345,12 @@ const VendorListPage = () => {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                             <button
+                              onClick={() => navigate(`/admin/vendor/${vendor._id}`)}
+                              className="text-emerald-600 hover:text-emerald-900 transition-colors font-medium hover:bg-emerald-50 px-3 py-1 rounded-lg"
+                            >
+                              View
+                            </button>
+                            <button
                               onClick={(e) => { e.stopPropagation(); handleEdit(vendor); }}
                               className="text-emerald-600 hover:text-emerald-900 transition-colors font-medium hover:bg-emerald-50 px-3 py-1 rounded-lg"
                             >
