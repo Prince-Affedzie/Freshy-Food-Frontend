@@ -339,7 +339,7 @@ function App() {
             
           } />
 
-          <Route path="/admin/payments/:id" element={
+          <Route path="/admin/payment/:id" element={
           <AdminRoute >
              <PaymentDetail />
          </AdminRoute>

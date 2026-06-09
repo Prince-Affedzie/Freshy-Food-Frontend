@@ -369,7 +369,7 @@ const AdminOrdersPage = () => {
                               {order.orderNumber || `#${order.id?.slice(0,8)}`}
                             </p>
                             <span style={{ display:'flex', alignItems:'center', gap:4, fontSize:11, color:'#BFBFBF' }}>
-                              <Calendar size={10}/>{fmtDate(order.createdAt)}
+                              <Calendar size={10}/>{order.createdAt}
                             </span>
                             {order.shippingAddress?.city && (
                               <span style={{ display:'flex', alignItems:'center', gap:4, fontSize:11, color:'#BFBFBF', marginTop:2 }}>
@@ -458,7 +458,7 @@ const AdminOrdersPage = () => {
                               {order.orderNumber||`#${order.id?.slice(0,8)}`}
                             </p>
                             <span style={{ display:'flex', alignItems:'center', gap:4, fontSize:11, color:'#BFBFBF' }}>
-                              <Calendar size={10}/>{fmtDate(order.createdAt)}
+                              <Calendar size={10}/>{order.createdAt}
                             </span>
                           </div>
                           <StatusBadge status={order.status} size="sm"/>
@@ -612,7 +612,7 @@ const AdminOrdersPage = () => {
                   <span style={{ fontSize:11, color:'#BFBFBF' }}>{fmtDate(new Date())}</span>
                 </div>
                 <div style={{ display:'flex', flexDirection:'column', gap:0 }}>
-                  {orders.slice(0,5).map((order,i)=>(
+                  {orders.slice(0,10).map((order,i)=>(
                     <div key={order.id} style={{ display:'flex', alignItems:'center', justifyContent:'space-between',
                       padding:'12px 0', borderBottom: i<4 ? '1px solid #F5F5F5' : 'none', gap:12 }}>
                       <div style={{ flex:1, minWidth:0 }}>
@@ -623,7 +623,7 @@ const AdminOrdersPage = () => {
                           <StatusBadge status={order.status} size="sm"/>
                         </div>
                         <span style={{ fontSize:11, color:'#8C8C8C' }}>
-                          {order.customer?.firstName||'Customer'} · {fmtDate(order.createdAt)}
+                          {order.customer?.firstName||'Customer'} · {order.createdAt}
                         </span>
                       </div>
                       <div style={{ display:'flex', alignItems:'center', gap:10, flexShrink:0 }}>

@@ -1,36 +1,80 @@
+// VendorListPage.jsx
 import React, { useEffect, useState } from 'react';
-import { getAllVendors } from '../Apis/vendorApi';
+import { getAllVendors, deleteVendor } from '../Apis/vendorApi';
 import { Link, useNavigate } from 'react-router-dom';
+import {
+  MagnifyingGlassIcon, XMarkIcon, ArrowPathIcon,
+  ChevronLeftIcon, ChevronRightIcon, UserGroupIcon,
+  CheckCircleIcon, ChartBarIcon, StarIcon,
+  MapPinIcon, PhoneIcon, CubeIcon, EyeIcon,
+  PencilIcon, TrashIcon,
+} from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
 import AdminLayout from '../Components/AdminComponents/adminLayout';
 
+const CAMPUS_LABELS = {
+  UG:'University of Ghana', KNUST:'KNUST', UCC:'University of Cape Coast',
+  UEW:'University of Education, Winneba', UPSA:'UPSA', GIMPA:'GIMPA',
+  ASHESI:'Ashesi University', ATU:'Accra Technical University', OTHER:'Other',
+};
+
+// ─── Sub-components ───────────────────────────────────────────────────────────
+const StatCard = ({ label, value, icon:Icon, accent, delay }) => (
+  <div style={{ background:'#fff', borderRadius:14, border:'1px solid #F0F0F0',
+    padding:'18px 20px', display:'flex', alignItems:'center', justifyContent:'space-between',
+    boxShadow:'0 1px 4px rgba(0,0,0,0.04)', borderTop:`3px solid ${accent}`,
+    animation:`fadeUp 0.4s ease ${delay}ms both` }}>
+    <div>
+      <p style={{ margin:'0 0 4px', fontSize:11, fontWeight:700, color:'#BFBFBF',
+        textTransform:'uppercase', letterSpacing:'0.06em' }}>{label}</p>
+      <p style={{ margin:0, fontSize:22, fontWeight:800, color:'#141414', letterSpacing:'-0.5px' }}>{value}</p>
+    </div>
+    <div style={{ width:44, height:44, borderRadius:12, background:accent+'18',
+      display:'flex', alignItems:'center', justifyContent:'center' }}>
+      <Icon style={{ width:22, height:22, color:accent }}/>
+    </div>
+  </div>
+);
+
+const Badge = ({ text, bg, color, border }) => (
+  <span style={{ padding:'3px 10px', borderRadius:20, fontSize:11, fontWeight:700,
+    background:bg, color, border:`1px solid ${border}`, whiteSpace:'nowrap' }}>
+    {text}
+  </span>
+);
+
+const SelectBox = ({ value, onChange, children, style={} }) => (
+  <select value={value} onChange={onChange} style={{
+    padding:'9px 12px', border:'1.5px solid #E8E8E8', borderRadius:9, fontSize:13,
+    fontFamily:"'DM Sans',sans-serif", color:'#262626', background:'#FAFAFA',
+    outline:'none', cursor:'pointer', ...style }}>
+    {children}
+  </select>
+);
+
+// ─── Main Component ───────────────────────────────────────────────────────────
 const VendorListPage = () => {
   const [vendors, setVendors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-
-  // Filters & search
   const [searchQuery, setSearchQuery] = useState('');
-  const [marketFilter, setMarketFilter] = useState('');
-
-  // Sorting
-  const [sortBy, setSortBy] = useState('name'); // name | market_name | is_verified
-  const [sortOrder, setSortOrder] = useState('asc'); // asc | desc
-
-  // Pagination
+  const [campusFilter, setCampusFilter] = useState('');
+  const [sortBy, setSortBy] = useState('name');
+  const [sortOrder, setSortOrder] = useState('asc');
   const [page, setPage] = useState(1);
   const [limit] = useState(10);
   const [totalCount, setTotalCount] = useState(0);
+  const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
   const navigate = useNavigate();
 
-  // Fetch vendors with all parameters
   const fetchVendors = async () => {
     setLoading(true);
     setError(null);
     try {
       const params = {
-        market: marketFilter.trim() || undefined,
+        campus: campusFilter.trim() || undefined,
         search: searchQuery.trim() || undefined,
         sortBy,
         order: sortOrder,
@@ -49,313 +93,281 @@ const VendorListPage = () => {
     }
   };
 
-  // Initial load & re-fetch on page/sort change
+  useEffect(() => { fetchVendors(); }, [page, sortBy, sortOrder]);
+  useEffect(() => { setPage(1); }, [searchQuery, campusFilter]);
   useEffect(() => {
-    fetchVendors();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, sortBy, sortOrder]);
-
-  // Reset page to 1 when filters change
-  useEffect(() => {
-    setPage(1);
-  }, [searchQuery, marketFilter]);
-
-  // Debounced re-fetch when search/filter/page changes
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      fetchVendors();
-    }, 300); // 300ms debounce for better UX
+    const timer = setTimeout(() => { fetchVendors(); }, 300);
     return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchQuery, marketFilter, page, sortBy, sortOrder]);
+  }, [searchQuery, campusFilter, page, sortBy, sortOrder]);
 
   const handleSort = (field) => {
-    if (sortBy === field) {
-      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortBy(field);
-      setSortOrder('asc');
-    }
+    if (sortBy === field) setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    else { setSortBy(field); setSortOrder('asc'); }
   };
 
   const totalPages = Math.ceil(totalCount / limit);
-
-  const handleEdit = (vendor) => {
-    navigate(`/admin/vendor_edit/${vendor._id}`);
-  };
+  const handleEdit = (vendor) => navigate(`/admin/vendor_edit/${vendor._id}`);
 
   const getImageUrl = (url) => {
     if (!url || url === 'default_banner.jpg' || url === 'default_profile.jpg') return null;
     return url;
   };
 
-  // Simple statistics from current data
+  const getCampusLabel = (campus) => CAMPUS_LABELS[campus] || campus || '—';
+
+  const handleDelete = async (vendor) => {
+    setDeleteConfirm(vendor);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteConfirm) return;
+    setDeleting(true);
+    try {
+      await deleteVendor(deleteConfirm._id);
+      toast.success(`Vendor "${deleteConfirm.name}" deleted successfully`);
+      setDeleteConfirm(null);
+      fetchVendors();
+    } catch (err) {
+      toast.error(err?.response?.data?.error || err.message || 'Failed to delete vendor');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const stats = {
     total: totalCount,
-    verified: vendors.filter(v => v.is_verified).length,
-    pending: vendors.filter(v => !v.is_verified).length,
+    verified: vendors.filter(v => v.isVerified).length,
+    active: vendors.filter(v => v.isActive).length,
   };
+
+  const hasActiveFilters = searchQuery || campusFilter;
 
   return (
     <AdminLayout>
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-8 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-7xl mx-auto space-y-8">
-          {/* Premium Header */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap');
+        * { box-sizing:border-box; }
+        @keyframes fadeUp { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+        @keyframes spin { to{transform:rotate(360deg)} }
+        .vn-row:hover { background:#FAFCFF !important; cursor:pointer; }
+        .vn-card:hover { background:#FAFCFF !important; cursor:pointer; }
+        .vn-desktop { display:block; }
+        .vn-mobile  { display:none; }
+        @media (max-width:767px) {
+          .vn-desktop { display:none !important; }
+          .vn-mobile  { display:block !important; }
+          .vn-stats   { grid-template-columns:repeat(2,1fr) !important; }
+          .vn-toolbar { flex-direction:column !important; }
+          .vn-page-footer { flex-direction:column !important; align-items:flex-start !important; }
+          .vn-hdr { flex-direction:column !important; align-items:flex-start !important; }
+        }
+        @media (max-width:480px) {
+          .vn-stats { grid-template-columns:1fr !important; }
+        }
+      `}</style>
+
+      <div style={{ fontFamily:"'DM Sans',sans-serif", background:'#FAFAFA', minHeight:'100vh', color:'#262626' }}>
+
+        {/* Sticky header */}
+        <div style={{ position:'sticky', top:0, zIndex:100, background:'#fff',
+          borderBottom:'1px solid #F0F0F0', boxShadow:'0 1px 4px rgba(0,0,0,0.05)' }}>
+          <div className="vn-hdr" style={{ maxWidth:1200, margin:'0 auto', padding:'14px 20px',
+            display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:12 }}>
             <div>
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent sm:text-4xl">
+              <h1 style={{ margin:0, fontSize:18, fontWeight:800, color:'#141414', letterSpacing:'-0.3px' }}>
                 Vendors
               </h1>
-              <p className="mt-1 text-sm text-gray-500 font-medium">
-                Manage all registered vendors in the system.
-              </p>
+              <p style={{ margin:'2px 0 0', fontSize:11, color:'#BFBFBF' }}>Manage all campus marketplace vendors</p>
             </div>
-            <Link
-              to="/admin/add-vendor"
-              className="inline-flex items-center px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-green-600 text-white text-sm font-semibold rounded-xl shadow-lg shadow-emerald-200 hover:from-emerald-600 hover:to-green-700 hover:shadow-xl hover:shadow-emerald-300 transition-all duration-200 transform hover:-translate-y-0.5 focus:ring-2 focus:ring-emerald-400 focus:ring-offset-2"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clipRule="evenodd" />
-              </svg>
-              Add Vendor
-            </Link>
-          </div>
-
-          {/* Statistics Cards (computed from current data) */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm border border-gray-200/60 p-5 flex items-center space-x-4 transition-shadow hover:shadow-md">
-              <div className="p-3 bg-emerald-100 rounded-xl">
-                <svg className="h-6 w-6 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                </svg>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-500">Total Vendors</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
-              </div>
-            </div>
-            <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm border border-gray-200/60 p-5 flex items-center space-x-4 transition-shadow hover:shadow-md">
-              <div className="p-3 bg-green-100 rounded-xl">
-                <svg className="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-500">Verified</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.verified}</p>
-              </div>
-            </div>
-            <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm border border-gray-200/60 p-5 flex items-center space-x-4 transition-shadow hover:shadow-md">
-              <div className="p-3 bg-amber-100 rounded-xl">
-                <svg className="h-6 w-6 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-500">Pending</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.pending}</p>
-              </div>
+            <div style={{ display:'flex', gap:8 }}>
+              <button onClick={fetchVendors}
+                style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'9px 14px',
+                  border:'1.5px solid #E8E8E8', borderRadius:9, fontSize:12, fontWeight:600,
+                  color:'#595959', background:'#fff', cursor:'pointer', fontFamily:"'DM Sans',sans-serif" }}>
+                <ArrowPathIcon style={{ width:15, height:15 }}/> Refresh
+              </button>
+              <Link to="/admin/add-vendor"
+                style={{ display:'inline-flex', alignItems:'center', gap:7, padding:'9px 18px',
+                  background:'#1677FF', color:'#fff', borderRadius:9, fontSize:13, fontWeight:700,
+                  textDecoration:'none', border:'none', fontFamily:"'DM Sans',sans-serif" }}>
+                + Add Vendor
+              </Link>
             </div>
           </div>
+        </div>
 
-          {/* Advanced Filter Bar */}
-          <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm border border-gray-200/60 p-4 transition-shadow hover:shadow-md">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {/* Search Input */}
-              <div>
-                <label htmlFor="searchQuery" className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Search vendor
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                    </svg>
-                  </div>
-                  <input
-                    id="searchQuery"
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Name, contact..."
-                    className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm transition-all duration-200 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-gray-50/50 hover:bg-white"
-                  />
-                </div>
-              </div>
-              {/* Market Filter */}
-              <div>
-                <label htmlFor="marketFilter" className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Filter by Market
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-                    </svg>
-                  </div>
-                  <input
-                    id="marketFilter"
-                    type="text"
-                    value={marketFilter}
-                    onChange={(e) => setMarketFilter(e.target.value)}
-                    placeholder="Enter market name..."
-                    className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm transition-all duration-200 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-gray-50/50 hover:bg-white"
-                  />
-                </div>
-              </div>
-            </div>
+        <div style={{ maxWidth:1200, margin:'0 auto', padding:'24px 16px 56px' }}>
+
+          {/* Stats */}
+          <div className="vn-stats" style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:14, marginBottom:22 }}>
+            <StatCard label="Total Vendors" value={stats.total} icon={UserGroupIcon} accent="#1677FF" delay={0} />
+            <StatCard label="Verified" value={stats.verified} icon={CheckCircleIcon} accent="#10B981" delay={60} />
+            <StatCard label="Active" value={stats.active} icon={ChartBarIcon} accent="#7C3AED" delay={120} />
           </div>
 
-          {/* Vendors Table + Pagination */}
-          {loading ? (
-            <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm border border-gray-200/60 p-8">
-              <div className="animate-pulse space-y-6">
-                {[...Array(5)].map((_, i) => (
-                  <div key={i} className="flex items-center space-x-4">
-                    <div className="rounded-full bg-gray-200 h-10 w-10" />
-                    <div className="flex-1 space-y-2">
-                      <div className="h-4 bg-gray-200 rounded w-1/4" />
-                      <div className="h-3 bg-gray-200 rounded w-1/3" />
-                    </div>
-                    <div className="h-3 bg-gray-200 rounded w-16" />
-                  </div>
+          {/* Filter bar */}
+          <div style={{ background:'#fff', borderRadius:12, border:'1px solid #F0F0F0', padding:'14px 18px',
+            marginBottom:16, boxShadow:'0 1px 4px rgba(0,0,0,0.04)', animation:'fadeUp 0.35s ease 280ms both' }}>
+            <div className="vn-toolbar" style={{ display:'flex', gap:10, alignItems:'center', flexWrap:'wrap' }}>
+              <div style={{ position:'relative', flex:'1 1 220px', minWidth:0 }}>
+                <MagnifyingGlassIcon style={{ position:'absolute', left:12, top:'50%', transform:'translateY(-50%)',
+                  width:15, height:15, color:'#BFBFBF' }}/>
+                <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
+                  placeholder="Search name, phone, store..."
+                  style={{ width:'100%', paddingLeft:36, paddingRight:searchQuery?34:14, paddingTop:9, paddingBottom:9,
+                    border:'1.5px solid #E8E8E8', borderRadius:9, fontSize:13, outline:'none',
+                    fontFamily:"'DM Sans',sans-serif", color:'#262626', background:'#FAFAFA' }}/>
+                {searchQuery && (
+                  <button onClick={() => setSearchQuery('')} style={{ position:'absolute', right:10, top:'50%',
+                    transform:'translateY(-50%)', background:'none', border:'none', cursor:'pointer',
+                    color:'#BFBFBF', display:'flex', padding:0 }}>
+                    <XMarkIcon style={{ width:15, height:15 }}/>
+                  </button>
+                )}
+              </div>
+              <SelectBox value={campusFilter} onChange={e => setCampusFilter(e.target.value)}
+                style={{ flex:'0 0 auto', minWidth:160 }}>
+                <option value="">All Campuses</option>
+                {Object.entries(CAMPUS_LABELS).map(([key, label]) => (
+                  <option key={key} value={key}>{label}</option>
                 ))}
-              </div>
+              </SelectBox>
+              {hasActiveFilters && (
+                <button onClick={() => { setSearchQuery(''); setCampusFilter(''); }} style={{
+                  display:'flex', alignItems:'center', gap:5, padding:'9px 12px', borderRadius:9,
+                  border:'1.5px solid #FFA39E', background:'#FFF1F0', fontSize:13, fontWeight:600,
+                  color:'#FF4D4F', cursor:'pointer', fontFamily:"'DM Sans',sans-serif" }}>
+                  <XMarkIcon style={{ width:14, height:14 }}/> Clear
+                </button>
+              )}
             </div>
-          ) : error && vendors.length === 0 ? (
-            <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm border border-gray-200/60 p-8 text-center">
-              <div className="mx-auto w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4">
-                <svg className="h-8 w-8 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                </svg>
+          </div>
+
+          {/* Vendors list */}
+          <div style={{ background:'#fff', borderRadius:14, border:'1px solid #F0F0F0', overflow:'hidden',
+            boxShadow:'0 1px 4px rgba(0,0,0,0.05)', animation:'fadeUp 0.35s ease 320ms both' }}>
+
+            {loading ? (
+              <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center',
+                padding:'64px 24px', gap:14 }}>
+                <div style={{ width:36, height:36, borderRadius:'50%', border:'3px solid #F0F0F0',
+                  borderTopColor:'#1677FF', animation:'spin 0.7s linear infinite' }}/>
+                <p style={{ margin:0, fontSize:13, color:'#8C8C8C' }}>Loading vendors…</p>
               </div>
-              <p className="text-red-600 font-medium mb-2">Failed to load vendors.</p>
-              <button onClick={fetchVendors} className="text-emerald-600 hover:underline text-sm font-medium">Retry</button>
-            </div>
-          ) : vendors.length === 0 ? (
-            <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm border border-gray-200/60 p-8 text-center">
-              <div className="mx-auto w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-                <svg className="h-8 w-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
-                </svg>
+            ) : error && vendors.length === 0 ? (
+              <div style={{ textAlign:'center', padding:'64px 24px' }}>
+                <p style={{ color:'#FF4D4F', fontWeight:600, marginBottom:8 }}>Failed to load vendors.</p>
+                <button onClick={fetchVendors} style={{ color:'#1677FF', fontWeight:600, fontSize:13, background:'none', border:'none', cursor:'pointer' }}>Retry</button>
               </div>
-              <p className="text-gray-600 font-medium">No vendors found.</p>
-              <Link to="/admin/add-vendor" className="mt-6 inline-flex items-center text-emerald-600 font-medium hover:underline text-sm">Add your first vendor</Link>
-            </div>
-          ) : (
-            <>
-              <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-sm border border-gray-200/60 overflow-hidden">
-                {/* Desktop Table with Sorting */}
-                <div className="hidden md:block overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200/80">
+            ) : vendors.length === 0 ? (
+              <div style={{ textAlign:'center', padding:'64px 24px' }}>
+                <UserGroupIcon style={{ width:48, height:48, color:'#E0E0E0', margin:'0 auto 12px' }}/>
+                <h3 style={{ margin:'0 0 6px', fontSize:15, fontWeight:700, color:'#595959' }}>No vendors found</h3>
+                <p style={{ margin:0, fontSize:13, color:'#BFBFBF' }}>Try adjusting your search or filters</p>
+              </div>
+            ) : (
+              <>
+                {/* Desktop table */}
+                <div className="vn-desktop" style={{ overflowX:'auto' }}>
+                  <table style={{ width:'100%', borderCollapse:'collapse', fontSize:13 }}>
                     <thead>
-                      <tr className="bg-gradient-to-r from-gray-50 to-gray-100/80">
-                        <th
-                          scope="col"
-                          className="px-6 py-4 text-left cursor-pointer select-none"
-                          onClick={() => handleSort('name')}
-                        >
-                          <div className="flex items-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                            Vendor
-                            {sortBy === 'name' && (
-                              <svg className="ml-1 h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                                {sortOrder === 'asc' ? (
-                                  <path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" />
-                                ) : (
-                                  <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-                                )}
-                              </svg>
-                            )}
-                          </div>
-                        </th>
-                        <th
-                          scope="col"
-                          className="px-6 py-4 text-left cursor-pointer select-none"
-                          onClick={() => handleSort('market_name')}
-                        >
-                          <div className="flex items-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                            Market
-                            {sortBy === 'market_name' && (
-                              <svg className="ml-1 h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                                {sortOrder === 'asc' ? (
-                                  <path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" />
-                                ) : (
-                                  <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-                                )}
-                              </svg>
-                            )}
-                          </div>
-                        </th>
-                        <th scope="col" className="px-6 py-4 text-xs font-semibold text-gray-600 uppercase tracking-wider">Contact</th>
-                        <th scope="col" className="px-6 py-4 text-xs font-semibold text-gray-600 uppercase tracking-wider">Location</th>
-                        <th
-                          scope="col"
-                          className="px-6 py-4 text-left cursor-pointer select-none"
-                          onClick={() => handleSort('is_verified')}
-                        >
-                          <div className="flex items-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                            Status
-                            {sortBy === 'is_verified' && (
-                              <svg className="ml-1 h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                                {sortOrder === 'asc' ? (
-                                  <path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" />
-                                ) : (
-                                  <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-                                )}
-                              </svg>
-                            )}
-                          </div>
-                        </th>
-                        <th scope="col" className="relative px-6 py-4"><span className="sr-only">Actions</span></th>
+                      <tr style={{ background:'#FAFAFA', borderBottom:'1px solid #F0F0F0' }}>
+                        {[
+                          { label:'Vendor', sort:'name' },
+                          { label:'Campus', sort:'campus' },
+                          { label:'Phone', sort:null },
+                          { label:'Listings', sort:null },
+                          { label:'Rating', sort:null },
+                          { label:'Status', sort:'isVerified' },
+                          { label:'', sort:null },
+                        ].map((h, i) => (
+                          <th key={i} onClick={() => h.sort && handleSort(h.sort)}
+                            style={{ padding:'12px 14px', textAlign:'left', fontSize:11, fontWeight:700,
+                              color:'#BFBFBF', textTransform:'uppercase', letterSpacing:'0.05em', whiteSpace:'nowrap',
+                              cursor: h.sort?'pointer':'default' }}>
+                            <div style={{ display:'flex', alignItems:'center', gap:4 }}>
+                              {h.label}
+                              {sortBy === h.sort && (
+                                <svg style={{ width:12, height:12 }} viewBox="0 0 20 20" fill="currentColor">
+                                  {sortOrder === 'asc' ? (
+                                    <path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" />
+                                  ) : (
+                                    <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                                  )}
+                                </svg>
+                              )}
+                            </div>
+                          </th>
+                        ))}
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-100">
+                    <tbody>
                       {vendors.map((vendor) => (
-                        <tr
-                          key={vendor._id}
-                          className="hover:bg-emerald-50/50 transition-colors duration-150 cursor-pointer group"
+                        <tr key={vendor._id} className="vn-row"
                           onClick={() => navigate(`/admin/vendor/${vendor._id}`)}
-                        >
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="flex items-center">
-                              <div className="flex-shrink-0 h-10 w-10 rounded-full bg-gray-100 ring-2 ring-white overflow-hidden shadow-sm">
-                                {getImageUrl(vendor.profile_image) ? (
-                                  <img src={vendor.profile_image} alt="" className="h-full w-full object-cover" />
+                          style={{ borderBottom:'1px solid #F5F5F5', background:'#fff', transition:'background 0.12s' }}>
+                          <td style={{ padding:'12px 14px' }}>
+                            <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                              <div style={{ width:36, height:36, borderRadius:18, background:'#F0F0F0',
+                                overflow:'hidden', flexShrink:0 }}>
+                                {getImageUrl(vendor.profileImage) ? (
+                                  <img src={vendor.profileImage} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }}/>
                                 ) : (
-                                  <svg className="h-full w-full text-gray-400 p-2" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
-                                  </svg>
+                                  <div style={{ width:'100%', height:'100%', display:'flex', alignItems:'center',
+                                    justifyContent:'center', background:'#E8F5E9' }}>
+                                    <span style={{ fontSize:14, fontWeight:800, color:'#2E7D32' }}>
+                                      {vendor.name?.charAt(0)?.toUpperCase() || '?'}
+                                    </span>
+                                  </div>
                                 )}
                               </div>
-                              <div className="ml-4">
-                                <div className="text-sm font-semibold text-gray-900 group-hover:text-emerald-700 transition-colors">{vendor.name}</div>
-                                <div className="text-xs text-gray-500">ID: {vendor._id.slice(-6)}</div>
+                              <div>
+                                <p style={{ margin:0, fontWeight:700, color:'#141414', fontSize:13 }}>{vendor.name}</p>
+                                {vendor.storeName && (
+                                  <p style={{ margin:'2px 0 0', fontSize:11, color:'#BFBFBF' }}>{vendor.storeName}</p>
+                                )}
                               </div>
                             </div>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{vendor.market_name}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{vendor.contact}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{vendor.location}</td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${
-                              vendor.is_verified ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
-                            }`}>
-                              {vendor.is_verified ? 'Verified' : 'Pending'}
-                            </span>
+                          <td style={{ padding:'12px 14px', fontSize:12, color:'#595959' }}>{getCampusLabel(vendor.campus)}</td>
+                          <td style={{ padding:'12px 14px', fontSize:12, color:'#595959' }}>{vendor.phone || '—'}</td>
+                          <td style={{ padding:'12px 14px', fontSize:12, fontWeight:600, color:'#141414' }}>
+                            {vendor.productCount ?? vendor.products?.length ?? 0}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                            <button
-                              onClick={() => navigate(`/admin/vendor/${vendor._id}`)}
-                              className="text-emerald-600 hover:text-emerald-900 transition-colors font-medium hover:bg-emerald-50 px-3 py-1 rounded-lg"
-                            >
-                              View
-                            </button>
-                            <button
-                              onClick={(e) => { e.stopPropagation(); handleEdit(vendor); }}
-                              className="text-emerald-600 hover:text-emerald-900 transition-colors font-medium hover:bg-emerald-50 px-3 py-1 rounded-lg"
-                            >
-                              Edit
-                            </button>
+                          <td style={{ padding:'12px 14px' }}>
+                            <div style={{ display:'flex', alignItems:'center', gap:4 }}>
+                              <StarIcon style={{ width:14, height:14, color:'#FAAD14' }}/>
+                              <span style={{ fontSize:12, fontWeight:600, color:'#141414' }}>{vendor.rating?.toFixed(1) || '0.0'}</span>
+                            </div>
+                          </td>
+                          <td style={{ padding:'12px 14px' }}>
+                            <Badge text={vendor.isVerified?'Verified':'Pending'}
+                              bg={vendor.isVerified?'#E8F5E9':'#FFF8E1'}
+                              color={vendor.isVerified?'#2E7D32':'#F57F17'}
+                              border={vendor.isVerified?'#A5D6A7':'#FFE082'} />
+                          </td>
+                          <td style={{ padding:'12px 14px 12px 0' }}>
+                            <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                              <button onClick={(e) => { e.stopPropagation(); navigate(`/admin/vendor/${vendor._id}`); }}
+                                style={{ display:'inline-flex', alignItems:'center', gap:4, padding:'6px 10px',
+                                  borderRadius:7, border:'1.5px solid #E8E8E8', background:'#fff', fontSize:11, fontWeight:600,
+                                  color:'#595959', cursor:'pointer', fontFamily:"'DM Sans',sans-serif" }}>
+                                <EyeIcon style={{ width:13, height:13 }}/> View
+                              </button>
+                              <button onClick={(e) => { e.stopPropagation(); handleEdit(vendor); }}
+                                style={{ display:'inline-flex', alignItems:'center', gap:4, padding:'6px 10px',
+                                  borderRadius:7, border:'1.5px solid #FFE082', background:'#FFF8E1', fontSize:11, fontWeight:600,
+                                  color:'#F57F17', cursor:'pointer', fontFamily:"'DM Sans',sans-serif" }}>
+                                <PencilIcon style={{ width:13, height:13 }}/> Edit
+                              </button>
+                              <button onClick={(e) => { e.stopPropagation(); handleDelete(vendor); }}
+                                style={{ display:'inline-flex', alignItems:'center', gap:4, padding:'6px 10px',
+                                  borderRadius:7, border:'1.5px solid #FFA39E', background:'#FFF1F0', fontSize:11, fontWeight:600,
+                                  color:'#CF1322', cursor:'pointer', fontFamily:"'DM Sans',sans-serif" }}>
+                                <TrashIcon style={{ width:13, height:13 }}/> Delete
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -363,133 +375,161 @@ const VendorListPage = () => {
                   </table>
                 </div>
 
-                {/* Mobile Card List */}
-                <div className="md:hidden divide-y divide-gray-100">
+                {/* Mobile cards */}
+                <div className="vn-mobile">
                   {vendors.map((vendor) => (
-                    <div
-                      key={vendor._id}
-                      className="p-4 hover:bg-emerald-50/30 transition-colors duration-150 active:scale-[0.99]"
+                    <div key={vendor._id} className="vn-card"
                       onClick={() => navigate(`/admin/vendor/${vendor._id}`)}
-                    >
-                      <div className="flex items-center">
-                        <div className="flex-shrink-0 h-12 w-12 rounded-full bg-gray-100 ring-2 ring-white shadow-sm overflow-hidden">
-                          {getImageUrl(vendor.profile_image) ? (
-                            <img src={vendor.profile_image} alt="" className="h-full w-full object-cover" />
+                      style={{ padding:'14px 16px', borderBottom:'1px solid #F5F5F5', background:'#fff', transition:'background 0.12s' }}>
+                      <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:10 }}>
+                        <div style={{ width:40, height:40, borderRadius:20, background:'#F0F0F0', overflow:'hidden', flexShrink:0 }}>
+                          {getImageUrl(vendor.profileImage) ? (
+                            <img src={vendor.profileImage} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }}/>
                           ) : (
-                            <svg className="h-full w-full text-gray-400 p-3" fill="currentColor" viewBox="0 0 20 20">
-                              <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
-                            </svg>
+                            <div style={{ width:'100%', height:'100%', display:'flex', alignItems:'center',
+                              justifyContent:'center', background:'#E8F5E9' }}>
+                              <span style={{ fontSize:16, fontWeight:800, color:'#2E7D32' }}>
+                                {vendor.name?.charAt(0)?.toUpperCase() || '?'}
+                              </span>
+                            </div>
                           )}
                         </div>
-                        <div className="ml-4 flex-1 min-w-0">
-                          <p className="text-sm font-semibold text-gray-900 truncate">{vendor.name}</p>
-                          <p className="text-xs text-gray-500 truncate">{vendor.market_name}</p>
+                        <div style={{ flex:1, minWidth:0 }}>
+                          <p style={{ margin:0, fontSize:14, fontWeight:700, color:'#141414' }}>{vendor.name}</p>
+                          <p style={{ margin:'2px 0 0', fontSize:11, color:'#BFBFBF' }}>{getCampusLabel(vendor.campus)}</p>
                         </div>
-                        <span className={`ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${
-                          vendor.is_verified ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
-                        }`}>
-                          {vendor.is_verified ? 'Verified' : 'Pending'}
-                        </span>
+                        <Badge text={vendor.isVerified?'Verified':'Pending'}
+                          bg={vendor.isVerified?'#E8F5E9':'#FFF8E1'}
+                          color={vendor.isVerified?'#2E7D32':'#F57F17'}
+                          border={vendor.isVerified?'#A5D6A7':'#FFE082'} />
                       </div>
-                      <div className="mt-3 grid grid-cols-2 gap-2 text-sm text-gray-700">
+                      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:10 }}>
                         <div>
-                          <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">Contact</span>
-                          <p className="truncate">{vendor.contact}</p>
+                          <p style={{ margin:0, fontSize:10, color:'#BFBFBF', textTransform:'uppercase' }}>Phone</p>
+                          <p style={{ margin:'2px 0 0', fontSize:12, fontWeight:600, color:'#595959' }}>{vendor.phone||'—'}</p>
                         </div>
                         <div>
-                          <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">Location</span>
-                          <p className="truncate">{vendor.location}</p>
+                          <p style={{ margin:0, fontSize:10, color:'#BFBFBF', textTransform:'uppercase' }}>Listings</p>
+                          <p style={{ margin:'2px 0 0', fontSize:12, fontWeight:600, color:'#141414' }}>
+                            {vendor.productCount ?? vendor.products?.length ?? 0} items
+                          </p>
                         </div>
                       </div>
-                      <div className="mt-3 flex justify-end">
-                        <button
-                          onClick={(e) => { e.stopPropagation(); handleEdit(vendor); }}
-                          className="text-sm font-medium text-emerald-600 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100 px-3 py-1 rounded-lg transition-colors"
-                        >
-                          Edit
+                      <div style={{ display:'flex', justifyContent:'flex-end', gap:6 }}>
+                        <button onClick={(e) => { e.stopPropagation(); navigate(`/admin/vendor/${vendor._id}`); }}
+                          style={{ display:'inline-flex', alignItems:'center', gap:4, padding:'6px 12px',
+                            borderRadius:7, border:'1.5px solid #E8E8E8', background:'#fff', fontSize:11, fontWeight:600,
+                            color:'#595959', cursor:'pointer', fontFamily:"'DM Sans',sans-serif" }}>
+                          <EyeIcon style={{ width:13, height:13 }}/> View
+                        </button>
+                        <button onClick={(e) => { e.stopPropagation(); handleEdit(vendor); }}
+                          style={{ display:'inline-flex', alignItems:'center', gap:4, padding:'6px 12px',
+                            borderRadius:7, border:'1.5px solid #FFE082', background:'#FFF8E1', fontSize:11, fontWeight:600,
+                            color:'#F57F17', cursor:'pointer', fontFamily:"'DM Sans',sans-serif" }}>
+                          <PencilIcon style={{ width:13, height:13 }}/> Edit
+                        </button>
+                        <button onClick={(e) => { e.stopPropagation(); handleDelete(vendor); }}
+                          style={{ display:'inline-flex', alignItems:'center', gap:4, padding:'6px 12px',
+                            borderRadius:7, border:'1.5px solid #FFA39E', background:'#FFF1F0', fontSize:11, fontWeight:600,
+                            color:'#CF1322', cursor:'pointer', fontFamily:"'DM Sans',sans-serif" }}>
+                          <TrashIcon style={{ width:13, height:13 }}/> Delete
                         </button>
                       </div>
                     </div>
                   ))}
                 </div>
-              </div>
+              </>
+            )}
 
-              {/* Pagination */}
-              {totalPages > 1 && (
-                <div className="mt-6 flex items-center justify-between">
-                  <div className="flex-1 flex justify-between sm:hidden">
-                    <button
-                      onClick={() => setPage(page - 1)}
-                      disabled={page === 1}
-                      className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-xl text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      Previous
-                    </button>
-                    <button
-                      onClick={() => setPage(page + 1)}
-                      disabled={page === totalPages}
-                      className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-xl text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      Next
-                    </button>
-                  </div>
-                  <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-                    <div>
-                      <p className="text-sm text-gray-700">
-                        Showing <span className="font-medium">{(page - 1) * limit + 1}</span> to <span className="font-medium">{Math.min(page * limit, totalCount)}</span> of{' '}
-                        <span className="font-medium">{totalCount}</span> vendors
-                      </p>
-                    </div>
-                    <div>
-                      <nav className="relative z-0 inline-flex rounded-xl shadow-sm -space-x-px" aria-label="Pagination">
-                        <button
-                          onClick={() => setPage(page - 1)}
-                          disabled={page === 1}
-                          className="relative inline-flex items-center px-3 py-2 rounded-l-xl border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
-                        </button>
-                        {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
-                          let pageNum;
-                          if (totalPages <= 5) {
-                            pageNum = i + 1;
-                          } else if (page <= 3) {
-                            pageNum = i + 1;
-                          } else if (page >= totalPages - 2) {
-                            pageNum = totalPages - 4 + i;
-                          } else {
-                            pageNum = page - 2 + i;
-                          }
-                          return (
-                            <button
-                              key={pageNum}
-                              onClick={() => setPage(pageNum)}
-                              className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
-                                page === pageNum
-                                  ? 'z-10 bg-emerald-50 border-emerald-500 text-emerald-600'
-                                  : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
-                              }`}
-                            >
-                              {pageNum}
-                            </button>
-                          );
-                        })}
-                        <button
-                          onClick={() => setPage(page + 1)}
-                          disabled={page === totalPages}
-                          className="relative inline-flex items-center px-3 py-2 rounded-r-xl border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" /></svg>
-                        </button>
-                      </nav>
-                    </div>
-                  </div>
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="vn-page-footer" style={{ display:'flex', alignItems:'center',
+                justifyContent:'space-between', padding:'14px 20px', borderTop:'1px solid #F5F5F5', gap:12 }}>
+                <span style={{ fontSize:12, color:'#8C8C8C' }}>
+                  Page <strong>{page}</strong> of <strong>{totalPages}</strong>
+                  {' '}· <strong>{totalCount}</strong> total
+                </span>
+                <div style={{ display:'flex', gap:6, alignItems:'center' }}>
+                  <button disabled={page <= 1} onClick={() => setPage(1)} style={{
+                    width:32, height:32, borderRadius:8, border:'1.5px solid #E8E8E8', background:'#fff',
+                    display:'flex', alignItems:'center', justifyContent:'center',
+                    cursor: page>1?'pointer':'not-allowed', opacity: page>1?1:0.4, fontSize:11, fontWeight:700, color:'#595959' }}>
+                    «
+                  </button>
+                  <button disabled={page <= 1} onClick={() => setPage(page - 1)} style={{
+                    width:32, height:32, borderRadius:8, border:'1.5px solid #E8E8E8', background:'#fff',
+                    display:'flex', alignItems:'center', justifyContent:'center',
+                    cursor: page>1?'pointer':'not-allowed', opacity: page>1?1:0.4 }}>
+                    <ChevronLeftIcon style={{ width:15, height:15, color:'#595959' }}/>
+                  </button>
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    const pg = Math.max(1, Math.min(page - 2, totalPages - 4)) + i;
+                    if (pg < 1 || pg > totalPages) return null;
+                    const active = pg === page;
+                    return (
+                      <button key={pg} onClick={() => setPage(pg)} style={{
+                        width:32, height:32, borderRadius:8, fontSize:13, fontWeight: active?700:500,
+                        border: active?'1.5px solid #1677FF':'1.5px solid #E8E8E8',
+                        background: active?'#E6F4FF':'#fff', color: active?'#1677FF':'#595959', cursor:'pointer' }}>
+                        {pg}
+                      </button>
+                    );
+                  })}
+                  <button disabled={page >= totalPages} onClick={() => setPage(page + 1)} style={{
+                    width:32, height:32, borderRadius:8, border:'1.5px solid #E8E8E8', background:'#fff',
+                    display:'flex', alignItems:'center', justifyContent:'center',
+                    cursor: page<totalPages?'pointer':'not-allowed', opacity: page<totalPages?1:0.4 }}>
+                    <ChevronRightIcon style={{ width:15, height:15, color:'#595959' }}/>
+                  </button>
+                  <button disabled={page >= totalPages} onClick={() => setPage(totalPages)} style={{
+                    width:32, height:32, borderRadius:8, border:'1.5px solid #E8E8E8', background:'#fff',
+                    display:'flex', alignItems:'center', justifyContent:'center',
+                    cursor: page<totalPages?'pointer':'not-allowed', opacity: page<totalPages?1:0.4, fontSize:11, fontWeight:700, color:'#595959' }}>
+                    »
+                  </button>
                 </div>
-              )}
-            </>
-          )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {deleteConfirm && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.4)', backdropFilter:'blur(4px)',
+          zIndex:9000, display:'flex', alignItems:'center', justifyContent:'center', padding:20,
+          animation:'fadeIn 0.2s ease' }}
+          onClick={() => setDeleteConfirm(null)}>
+          <div style={{ background:'#fff', borderRadius:16, maxWidth:400, width:'100%',
+            padding:'28px 28px 22px', boxShadow:'0 24px 64px rgba(0,0,0,0.18)',
+            animation:'fadeUp 0.25s ease' }}
+            onClick={e => e.stopPropagation()}>
+            <div style={{ width:46, height:46, borderRadius:12, background:'#FFF1F0',
+              display:'flex', alignItems:'center', justifyContent:'center', marginBottom:14 }}>
+              <TrashIcon style={{ width:22, height:22, color:'#FF4D4F' }}/>
+            </div>
+            <h3 style={{ margin:'0 0 8px', fontSize:17, fontWeight:800, color:'#141414' }}>Delete Vendor?</h3>
+            <p style={{ margin:'0 0 4px', fontSize:13, color:'#595959', lineHeight:1.5 }}>
+              You're about to permanently delete <strong>{deleteConfirm.name}</strong>
+              {deleteConfirm.storeName && <span> ({deleteConfirm.storeName})</span>}.
+            </p>
+            <p style={{ margin:'0 0 22px', fontSize:12, color:'#8C8C8C' }}>
+              This action cannot be undone. All associated data will be removed.
+            </p>
+            <div style={{ display:'flex', justifyContent:'flex-end', gap:10 }}>
+              <button onClick={() => setDeleteConfirm(null)} style={{ padding:'9px 18px', borderRadius:9,
+                border:'1.5px solid #E8E8E8', background:'#fff', fontSize:13, fontWeight:700,
+                cursor:'pointer', fontFamily:"'DM Sans',sans-serif", color:'#595959' }}>Cancel</button>
+              <button onClick={confirmDelete} disabled={deleting} style={{
+                padding:'9px 18px', borderRadius:9, border:'none', background: deleting?'#BFBFBF':'#FF4D4F',
+                color:'#fff', fontSize:13, fontWeight:700, cursor: deleting?'not-allowed':'pointer',
+                fontFamily:"'DM Sans',sans-serif", opacity: deleting?0.7:1 }}>
+                {deleting ? 'Deleting…' : 'Delete Vendor'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </AdminLayout>
   );
 };

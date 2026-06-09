@@ -23,7 +23,7 @@ const MENU = [
     subItems: [
       { id: 'all-products',  title: 'All Products', icon: List,       route: '/admin-products'      },
       { id: 'add-product',   title: 'Add Product',  icon: PlusCircle, route: '/admin/add-product'   },
-      { id: 'categories',    title: 'Categories',   icon: Folder,     route: '/admin/categories'    },
+     // { id: 'categories',    title: 'Categories',   icon: Folder,     route: '/admin/categories'    },
     ],
   },
   {
@@ -39,9 +39,9 @@ const MENU = [
   { id: 'users',         title: 'Users',         icon: Users,    route: '/admin/users'         },
   { id: 'vendors',         title: 'Vendors',     icon: Users,    route: '/admin/vendors'         },
   { id: 'payments',      title: 'Payments',      icon: CreditCard, route: '/admin/payments'    },
-  { id: 'analytics',     title: 'Analytics',     icon: BarChart2, route: '/admin/analytics'   },
+  //{ id: 'analytics',     title: 'Analytics',     icon: BarChart2, route: '/admin/analytics'   },
   { id: 'notifications', title: 'Notifications', icon: Bell,     route: '/admin/notifications' },
-  { id: 'settings',      title: 'Settings',      icon: Settings, route: '/admin/settings'      },
+  //{ id: 'settings',      title: 'Settings',      icon: Settings, route: '/admin/settings'      },
 ];
 
 // ─── Accent colours per nav id ────────────────────────────────────────────────
@@ -364,7 +364,7 @@ const AdminSidebar = ({ isCollapsed, isMobile, isOpen, toggleSidebar }) => {
             </div>
           )}
 
-          {/* Profile link */}
+          {/* Profile link
           <FooterBtn
             icon={User}
             label="Admin Profile"
@@ -373,9 +373,9 @@ const AdminSidebar = ({ isCollapsed, isMobile, isOpen, toggleSidebar }) => {
             color="#595959"
             bg="transparent"
             hoverBg="#F5F5F5"
-          />
+          /> */}
 
-          {/* Back to site */}
+          {/* Back to site 
           <FooterBtn
             icon={Home}
             label="Back to Site"
@@ -384,7 +384,7 @@ const AdminSidebar = ({ isCollapsed, isMobile, isOpen, toggleSidebar }) => {
             color="#FF4D4F"
             bg="transparent"
             hoverBg="#FFF1F0"
-          />
+          />*/}
         </div>
       </aside>
     </>

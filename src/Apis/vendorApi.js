@@ -16,7 +16,7 @@ export const createVendor = async(formData)=>{
 
 export const updateVendor = async(formData,id)=>{
     try {
-        const response = await API.put(`/api/vendor/${id}`, formData, {
+        const response = await API.put(`/api/admin/vendor/${id}`, formData, {
           headers: {
             'Content-Type': 'multipart/form-data',
           },
@@ -30,12 +30,12 @@ export const updateVendor = async(formData,id)=>{
 
 export const deleteVendor = async (id) => {
   try {
-    const response = await API.delete(`/api/vendor/${id}`);
+    const response = await API.delete(`/api/admin/vendor/${id}`);
     return response;
   } catch (error) {
     throw error;
   }
 };
 
-export const getAllVendors = (params = {}) => API.get('/api/vendor', { params });
-export const getVendorById = (id)=>API.get(`/api/vendor/${id}`)
+export const getAllVendors = (params = {}) => API.get('/api/admin/vendors', { params });
+export const getVendorById = (id)=>API.get(`/api/admin/vendor/${id}`)

@@ -3,49 +3,68 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
   ArrowLeftIcon, PencilIcon, TrashIcon, CheckCircleIcon,
-  XCircleIcon, ExclamationTriangleIcon, ArrowPathIcon, TagIcon,
+  XCircleIcon, ExclamationTriangleIcon, ArrowPathIcon,
+  UserCircleIcon, MapPinIcon, TagIcon, PhoneIcon,
+  EyeIcon, HeartIcon, StarIcon, CubeIcon,
 } from '@heroicons/react/24/outline';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import { getProductById, deleteProduct } from '../Apis/productApi';
+import { getProductById, deleteProduct } from '../Apis/adminApi';
 import AdminLayout from '../Components/AdminComponents/adminLayout';
 
 // ─── Data maps ────────────────────────────────────────────────────────────────
-const CAT_LABELS = {
-  vegetable:'Vegetable', fruit:'Fruit', staple:'Staple', herb:'Herb',
-  tuber:'Tuber', grain:'Grain', cereal:'Cereal', meat:'Meat',
-  'frozen-food':'Frozen Food', poultry:'Poultry', seafood:'Seafood',
-  spice:'Spice', other:'Other',
+const CAMPUS_LABELS = {
+  UG:'University of Ghana', KNUST:'KNUST', UCC:'University of Cape Coast',
+  UEW:'University of Education, Winneba', UPSA:'UPSA', GIMPA:'GIMPA',
+  ASHESI:'Ashesi University', ATU:'Accra Technical University', OTHER:'Other',
 };
-const UNIT_LABELS = {
-  kg:'kg', g:'g', piece:'pc', pieces:'pcs', bunch:'bunch',
-  bag:'bag', pack:'pack', basket:'basket', olonka:'Olonka',
-  liter:'L', ml:'ml', box:'box', tin:'tin', jar:'jar',
+
+const CONDITION_LABELS = {
+  'new':{ label:'Brand New', bg:'#E8F5E9', color:'#2E7D32' },
+  'like-new':{ label:'Like New', bg:'#E8F5E9', color:'#2E7D32' },
+  'excellent':{ label:'Excellent', bg:'#E3F2FD', color:'#1565C0' },
+  'good':{ label:'Good', bg:'#FFF8E1', color:'#F57F17' },
+  'fair':{ label:'Fair', bg:'#FFF3E0', color:'#E65100' },
+  'slightly-used':{ label:'Slightly Used', bg:'#FFF3E0', color:'#E65100' },
+  'for-parts':{ label:'For Parts', bg:'#FFEBEE', color:'#C62828' },
 };
+
+const CATEGORY_LABELS = {
+  'electronics':'Electronics', 'phones and tablets':'Phones & Tablets',
+  'computers and laptops':'Computers & Laptops', 'gaming':'Gaming',
+  'fashion':'Fashion', 'books-course-materials':'Books & Course Materials',
+  'hostel-items':'Hostel Items', 'appliances':'Appliances',
+  'furniture':'Furniture', 'beauty and grooming':'Beauty & Grooming',
+  'sports and fitness':'Sports & Fitness', 'accessories':'Accessories',
+  'food and drinks':'Food & Drinks', 'services':'Services', 'other':'Other',
+};
+
 const TAG_LABELS = {
-  featured:'Featured', best_selling:'Best Selling', new_arrival:'New Arrival',
-  discounted:'Discounted', popular:'Popular', seasonal:'Seasonal',
-  fresh_today:'Fresh Today', farm_fresh:'Farm Fresh', organic:'Organic',
-  locally_sourced:'Locally Sourced', ready_to_cook:'Ready to Cook',
-  ready_to_eat:'Ready to Eat', perishable:'Perishable', non_perishable:'Non-Perishable',
+  featured:'Featured', 'urgent-sale':'Urgent Sale', popular:'Popular',
+  discounted:'Discounted', 'new-arrival':'New Arrival', 'student-favorite':'Student Favorite',
 };
 
 const TAG_COLORS = [
   { bg:'#E6F4FF', color:'#1677FF', border:'#91CAFF' },
-  { bg:'#F6FFED', color:'#389E0D', border:'#B7EB8F' },
+  { bg:'#FFF1F0', color:'#CF1322', border:'#FFA39E' },
   { bg:'#F9F0FF', color:'#531DAB', border:'#D3ADF7' },
   { bg:'#FFFBE6', color:'#D48806', border:'#FFE58F' },
-  { bg:'#FFF1F0', color:'#CF1322', border:'#FFA39E' },
+  { bg:'#F6FFED', color:'#389E0D', border:'#B7EB8F' },
   { bg:'#E6FFFB', color:'#08979C', border:'#87E8DE' },
 ];
+
+const PLACEHOLDER_IMAGE = 'https://via.placeholder.com/400x400/F5F5F5/BDBDBD?text=No+Image';
 
 const fmtDate = (d) =>
   d ? new Date(d).toLocaleDateString('en-US', { year:'numeric', month:'short', day:'numeric' }) : '—';
 
+const fmtPrice = (price) =>
+  price != null ? `GH₵ ${Number(price).toFixed(2)}` : '—';
+
 const stockInfo = (n=0) => {
-  if (n===0) return { text:'Out of Stock', bg:'#FFF1F0', color:'#CF1322', border:'#FFA39E', dot:'#FF4D4F' };
-  if (n<=10)  return { text:`Low Stock · ${n}`, bg:'#FFFBE6', color:'#D48806', border:'#FFE58F', dot:'#FAAD14' };
-  return       { text:`In Stock · ${n}`, bg:'#F6FFED', color:'#389E0D', border:'#B7EB8F', dot:'#52C41A' };
+  if (n===0) return { text:'Sold Out', bg:'#FFF1F0', color:'#CF1322', border:'#FFA39E', dot:'#FF4D4F' };
+  if (n<=3)  return { text:`Only ${n} left`, bg:'#FFFBE6', color:'#D48806', border:'#FFE58F', dot:'#FAAD14' };
+  return       { text:`${n} in stock`, bg:'#F6FFED', color:'#389E0D', border:'#B7EB8F', dot:'#52C41A' };
 };
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -56,7 +75,22 @@ const MetaRow = ({ label, value }) => (
   </div>
 );
 
-const SectionCard = ({ title, icon: Icon, children, accent='#1677FF', style={} }) => (
+const InfoRow = ({ icon:Icon, label, value, valueColor }) => (
+  <div style={{ display:'flex', alignItems:'flex-start', gap:10, padding:'10px 0', borderBottom:'1px solid #F5F5F5' }}>
+    {Icon && (
+      <div style={{ width:32, height:32, borderRadius:8, background:'#F5F5F5',
+        display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+        <Icon style={{ width:15, height:15, color:'#8C8C8C' }}/>
+      </div>
+    )}
+    <div style={{ flex:1 }}>
+      <p style={{ margin:0, fontSize:10, color:'#BFBFBF', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.06em' }}>{label}</p>
+      <p style={{ margin:'2px 0 0', fontSize:13, fontWeight:600, color:valueColor||'#262626' }}>{value||'—'}</p>
+    </div>
+  </div>
+);
+
+const SectionCard = ({ title, icon:Icon, children, accent='#1677FF', style={} }) => (
   <div style={{ background:'#fff', borderRadius:14, border:'1px solid #F0F0F0',
     overflow:'hidden', boxShadow:'0 1px 4px rgba(0,0,0,0.05)', ...style }}>
     <div style={{ display:'flex', alignItems:'center', gap:9, padding:'13px 18px',
@@ -76,13 +110,14 @@ const SectionCard = ({ title, icon: Icon, children, accent='#1677FF', style={} }
 // ─── Main Component ───────────────────────────────────────────────────────────
 const ProductDetailPage = () => {
   const { id }  = useParams();
+  console.log(id)
   const navigate = useNavigate();
 
   const [product, setProduct]             = useState(null);
   const [loading, setLoading]             = useState(true);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [activeTab, setActiveTab]         = useState('details');
-  const [imgError, setImgError]           = useState(false);
+  const [activeImageIdx, setActiveImageIdx]   = useState(0);
+  const [imgErrors, setImgErrors]         = useState({});
 
   useEffect(() => { fetchProduct(); }, [id]);
 
@@ -90,8 +125,10 @@ const ProductDetailPage = () => {
     setLoading(true);
     try {
       const res = await getProductById(id);
-      if (res.data?.success && res.data?.data) setProduct(res.data.data);
-      else throw new Error('Invalid data');
+      if (res.data?.success && res.data?.data) {
+        const data = res.data.data.product || res.data.data;
+        setProduct(data);
+      } else throw new Error('Invalid data');
     } catch (err) {
       toast.error(err.response?.data?.message || 'Could not load product');
       navigate('/admin-products');
@@ -111,6 +148,10 @@ const ProductDetailPage = () => {
   const handleToggle = async () => {
     toast.info(`Product ${product.isAvailable ? 'deactivated' : 'activated'}`);
     fetchProduct();
+  };
+
+  const handleImgError = (idx) => {
+    setImgErrors(prev => ({ ...prev, [idx]: true }));
   };
 
   // ── Loading ──────────────────────────────────────────────────────────────
@@ -139,12 +180,13 @@ const ProductDetailPage = () => {
     </AdminLayout>
   );
 
+  // ── Derived values ──────────────────────────────────────────────────────
+  const images = product.images?.length > 0 ? product.images : [product.image || PLACEHOLDER_IMAGE];
+  const condition = CONDITION_LABELS[product.condition] || { label:product.condition, bg:'#F5F5F5', color:'#8C8C8C' };
   const sk = stockInfo(product.countInStock);
-  const price = product.priceDisplay || `₵${Number(product.price||0).toFixed(2)}`;
-  const unit  = product.unitDisplay || UNIT_LABELS[product.unit] || product.unit || '—';
-  const cat   = product.categoryDisplay || CAT_LABELS[product.category] || product.category || '—';
-
-  const TABS = ['details','nutrition','storage'];
+  const price = fmtPrice(product.price);
+  const catLabel = CATEGORY_LABELS[product.category] || product.category || '—';
+  const vendor = product.vendor;
 
   return (
     <AdminLayout>
@@ -155,7 +197,7 @@ const ProductDetailPage = () => {
         @keyframes fadeIn { from{opacity:0} to{opacity:1} }
         @keyframes spin   { to{transform:rotate(360deg)} }
         .pd-btn:hover     { filter:brightness(0.93); }
-        .pd-tab:hover     { color:#1677FF !important; }
+        .thumb:hover      { border-color:#1677FF !important; }
 
         @media (max-width:768px) {
           .pd-layout    { grid-template-columns:1fr !important; }
@@ -165,7 +207,6 @@ const ProductDetailPage = () => {
         }
         @media (max-width:480px) {
           .pd-meta-grid { grid-template-columns:1fr !important; }
-          .pd-price-row { flex-direction:column !important; align-items:flex-start !important; }
         }
       `}</style>
 
@@ -178,7 +219,6 @@ const ProductDetailPage = () => {
           borderBottom:'1px solid #F0F0F0', boxShadow:'0 1px 4px rgba(0,0,0,0.05)' }}>
           <div className="pd-hdr" style={{ maxWidth:1100, margin:'0 auto', padding:'12px 20px',
             display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:10 }}>
-            {/* Breadcrumb + title */}
             <div>
               <nav style={{ display:'flex', alignItems:'center', gap:6, fontSize:11, color:'#8C8C8C', marginBottom:3 }}>
                 <Link to="/admin-products" style={{ color:'#8C8C8C', textDecoration:'none', fontWeight:600 }}>Products</Link>
@@ -188,7 +228,6 @@ const ProductDetailPage = () => {
               <h1 style={{ margin:0, fontSize:17, fontWeight:800, color:'#141414', letterSpacing:'-0.3px' }}>{product.name}</h1>
             </div>
 
-            {/* Actions */}
             <div className="pd-actions" style={{ display:'flex', gap:8 }}>
               <Link to={`/admin-product/edit/${id}`} className="pd-btn" style={{
                 display:'inline-flex', alignItems:'center', gap:6, padding:'8px 14px',
@@ -227,12 +266,16 @@ const ProductDetailPage = () => {
             {/* ══ LEFT COLUMN ══════════════════════════════════════════════ */}
             <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
 
-              {/* Product image */}
+              {/* Product image gallery */}
               <div style={{ background:'#fff', borderRadius:14, border:'1px solid #F0F0F0',
                 overflow:'hidden', boxShadow:'0 1px 4px rgba(0,0,0,0.05)', animation:'fadeUp 0.4s ease both' }}>
-                {!imgError ? (
-                  <img src={product.image} alt={product.name} onError={()=>setImgError(true)}
-                    style={{ width:'100%', aspectRatio:'1/1', objectFit:'cover', display:'block' }}/>
+                {!imgErrors[activeImageIdx] ? (
+                  <img
+                    src={images[activeImageIdx]}
+                    alt={product.name}
+                    onError={() => handleImgError(activeImageIdx)}
+                    style={{ width:'100%', aspectRatio:'1/1', objectFit:'cover', display:'block' }}
+                  />
                 ) : (
                   <div style={{ width:'100%', aspectRatio:'1/1', background:'#F5F5F5',
                     display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:10 }}>
@@ -240,15 +283,37 @@ const ProductDetailPage = () => {
                     <p style={{ margin:0, fontSize:12, color:'#BFBFBF' }}>Image unavailable</p>
                   </div>
                 )}
+
+                {/* Thumbnail strip */}
+                {images.length > 1 && (
+                  <div style={{ display:'flex', gap:8, padding:12, overflowX:'auto', borderTop:'1px solid #F5F5F5' }}>
+                    {images.map((img, i) => (
+                      <div
+                        key={i}
+                        className="thumb"
+                        onClick={() => setActiveImageIdx(i)}
+                        style={{
+                          width:56, height:56, borderRadius:8, overflow:'hidden',
+                          border:`2px solid ${i === activeImageIdx ? '#1677FF' : '#E8E8E8'}`,
+                          cursor:'pointer', flexShrink:0, transition:'border-color 0.15s',
+                        }}
+                      >
+                        <img src={img} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }} />
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Price + status card */}
               <div style={{ background:'#fff', borderRadius:14, border:'1px solid #F0F0F0',
                 padding:'18px 20px', boxShadow:'0 1px 4px rgba(0,0,0,0.05)', animation:'fadeUp 0.4s ease 60ms both' }}>
-                {/* Price */}
-                <div className="pd-price-row" style={{ display:'flex', alignItems:'baseline', gap:8, marginBottom:14 }}>
+                <div style={{ display:'flex', alignItems:'baseline', gap:8, marginBottom:14 }}>
                   <span style={{ fontSize:32, fontWeight:800, color:'#141414', letterSpacing:'-1px' }}>{price}</span>
-                  <span style={{ fontSize:13, color:'#8C8C8C', fontWeight:500 }}>/ {unit}</span>
+                  {product.negotiable && (
+                    <span style={{ padding:'3px 10px', borderRadius:20, fontSize:11, fontWeight:700,
+                      background:'#FFF7E6', color:'#D48806', border:'1px solid #FFD591' }}>Negotiable</span>
+                  )}
                 </div>
 
                 {/* Stock badge */}
@@ -264,19 +329,20 @@ const ProductDetailPage = () => {
                     ? <CheckCircleIcon style={{ width:16, height:16, color:'#52C41A' }}/>
                     : <XCircleIcon    style={{ width:16, height:16, color:'#FF4D4F' }}/>}
                   <span style={{ fontSize:13, fontWeight:700, color:product.isAvailable?'#389E0D':'#CF1322' }}>
-                    {product.isAvailable ? 'Listed — visible to customers' : 'Unlisted — hidden from store'}
+                    {product.isAvailable ? 'Listed — visible to students' : 'Unlisted — hidden from store'}
                   </span>
                 </div>
 
-                {product.isInSeason && (
-                  <div style={{ marginTop:10 }}>
-                    <span style={{ padding:'3px 10px', borderRadius:20, fontSize:11, fontWeight:700,
-                      background:'#FFF7E6', color:'#D48806', border:'1px solid #FFD591' }}>🌿 In Season</span>
-                  </div>
-                )}
+                {/* Condition badge */}
+                <div style={{ marginTop:10 }}>
+                  <span style={{ padding:'4px 12px', borderRadius:8, fontSize:11, fontWeight:700,
+                    background:condition.bg, color:condition.color }}>
+                    {condition.label}
+                  </span>
+                </div>
 
                 <p style={{ margin:'14px 0 0', fontSize:11, color:'#BFBFBF' }}>
-                  Added {fmtDate(product.createdAt)} · Updated {fmtDate(product.updatedAt)}
+                  Listed {fmtDate(product.createdAt)} · Updated {fmtDate(product.updatedAt)}
                 </p>
               </div>
             </div>
@@ -284,107 +350,113 @@ const ProductDetailPage = () => {
             {/* ══ RIGHT COLUMN ═════════════════════════════════════════════ */}
             <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
 
-              {/* Tabs */}
-              <div style={{ background:'#fff', borderRadius:14, border:'1px solid #F0F0F0',
-                overflow:'hidden', boxShadow:'0 1px 4px rgba(0,0,0,0.05)', animation:'fadeUp 0.4s ease 80ms both' }}>
-                {/* Tab bar */}
-                <div style={{ display:'flex', borderBottom:'1px solid #F0F0F0', paddingLeft:8, overflowX:'auto' }}>
-                  {TABS.map(t=>(
-                    <button key={t} className="pd-tab" onClick={()=>setActiveTab(t)} style={{
-                      padding:'12px 16px', fontSize:13, fontWeight:activeTab===t?700:500,
-                      color:activeTab===t?'#1677FF':'#8C8C8C', background:'none', border:'none',
-                      borderBottom:`2px solid ${activeTab===t?'#1677FF':'transparent'}`,
-                      cursor:'pointer', whiteSpace:'nowrap', fontFamily:"'DM Sans',sans-serif",
-                      transition:'color 0.15s',
-                    }}>
-                      {t.charAt(0).toUpperCase()+t.slice(1)}
-                    </button>
-                  ))}
+              {/* Details card */}
+              <SectionCard title="Product Details" icon={TagIcon} accent="#1677FF"
+                style={{ animation:'fadeUp 0.4s ease 80ms both' }}>
+                {/* Description */}
+                <div style={{ marginBottom:18, paddingBottom:18, borderBottom:'1px solid #F5F5F5' }}>
+                  <p style={{ margin:'0 0 8px', fontSize:10, fontWeight:700, color:'#BFBFBF',
+                    textTransform:'uppercase', letterSpacing:'0.06em' }}>Description</p>
+                  <p style={{ margin:0, fontSize:13, color:'#595959', lineHeight:1.7 }}>
+                    {product.description || 'No description provided.'}
+                  </p>
                 </div>
 
-                <div style={{ padding:'18px 20px' }}>
-                  {/* ── Details tab ── */}
-                  {activeTab === 'details' && (
-                    <div style={{ display:'flex', flexDirection:'column', gap:0 }}>
-                      {/* Description */}
-                      <div style={{ marginBottom:18, paddingBottom:18, borderBottom:'1px solid #F5F5F5' }}>
-                        <p style={{ margin:'0 0 8px', fontSize:10, fontWeight:700, color:'#BFBFBF',
-                          textTransform:'uppercase', letterSpacing:'0.06em' }}>Description</p>
-                        <p style={{ margin:0, fontSize:13, color:'#595959', lineHeight:1.7 }}>
-                          {product.description || 'No description provided.'}
-                        </p>
-                      </div>
-
-                      {/* Meta grid */}
-                      <div className="pd-meta-grid" style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:14, marginBottom:16 }}>
-                        <MetaRow label="Category" value={cat}/>
-                        <MetaRow label="Unit"     value={unit}/>
-                        <MetaRow label="Brand"    value={product.brand}/>
-                        {product.weight     && <MetaRow label="Weight"    value={product.weight}/>}
-                        {product.dimensions && <MetaRow label="Dimensions" value={product.dimensions}/>}
-                        {product.shelfLifeDays && <MetaRow label="Shelf Life" value={`${product.shelfLifeDays} days`}/>}
-                        <MetaRow label="Slug" value={product.slug}/>
-                      </div>
-
-                      {/* Tags */}
-                      {product.tags?.length > 0 && (
-                        <div>
-                          <p style={{ margin:'0 0 10px', fontSize:10, fontWeight:700, color:'#BFBFBF',
-                            textTransform:'uppercase', letterSpacing:'0.06em' }}>Tags</p>
-                          <div style={{ display:'flex', flexWrap:'wrap', gap:7 }}>
-                            {product.tags.map((tag,i)=>{
-                              const c = TAG_COLORS[i % TAG_COLORS.length];
-                              return (
-                                <span key={i} style={{ padding:'4px 12px', borderRadius:20, fontSize:12, fontWeight:700,
-                                  background:c.bg, color:c.color, border:`1px solid ${c.border}` }}>
-                                  {TAG_LABELS[tag] || tag}
-                                </span>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* ── Nutrition tab ── */}
-                  {activeTab === 'nutrition' && (
-                    <div>
-                      {product.nutritionalInfo ? (
-                        <p style={{ margin:0, fontSize:13, color:'#595959', lineHeight:1.7 }}>{product.nutritionalInfo}</p>
-                      ) : (
-                        <div style={{ textAlign:'center', padding:'32px 0' }}>
-                          <TagIcon style={{ width:36, height:36, color:'#E0E0E0', margin:'0 auto 10px' }}/>
-                          <p style={{ margin:0, fontSize:13, color:'#BFBFBF' }}>No nutritional information added yet.</p>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* ── Storage tab ── */}
-                  {activeTab === 'storage' && (
-                    <div>
-                      {product.storageTips ? (
-                        <p style={{ margin:0, fontSize:13, color:'#595959', lineHeight:1.7 }}>{product.storageTips}</p>
-                      ) : (
-                        <div style={{ textAlign:'center', padding:'32px 0' }}>
-                          <TagIcon style={{ width:36, height:36, color:'#E0E0E0', margin:'0 auto 10px' }}/>
-                          <p style={{ margin:0, fontSize:13, color:'#BFBFBF' }}>No storage tips added yet.</p>
-                        </div>
-                      )}
-                    </div>
-                  )}
+                {/* Meta grid */}
+                <div className="pd-meta-grid" style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:14, marginBottom:16 }}>
+                  <MetaRow label="Category" value={catLabel}/>
+                  <MetaRow label="Subcategory" value={product.subcategory?.replace(/-/g, ' ') || '—'}/>
+                  <MetaRow label="Condition" value={condition.label}/>
+                  <MetaRow label="Campus" value={CAMPUS_LABELS[product.campus] || product.campus}/>
+                  <MetaRow label="Area" value={product.location?.campusArea || '—'}/>
+                  <MetaRow label="Hostel" value={product.location?.hostel || '—'}/>
+                  <MetaRow label="Brand" value={product.brand || '—'}/>
+                  <MetaRow label="Views" value={product.views ?? '0'}/>
+                  <MetaRow label="Favorites" value={`${product.favorites ?? 0} saves`}/>
                 </div>
-              </div>
+
+                {/* Tags */}
+                {product.tags?.length > 0 && (
+                  <div>
+                    <p style={{ margin:'0 0 10px', fontSize:10, fontWeight:700, color:'#BFBFBF',
+                      textTransform:'uppercase', letterSpacing:'0.06em' }}>Tags</p>
+                    <div style={{ display:'flex', flexWrap:'wrap', gap:7 }}>
+                      {product.tags.map((tag,i)=>{
+                        const c = TAG_COLORS[i % TAG_COLORS.length];
+                        return (
+                          <span key={i} style={{ padding:'4px 12px', borderRadius:20, fontSize:12, fontWeight:700,
+                            background:c.bg, color:c.color, border:`1px solid ${c.border}` }}>
+                            {TAG_LABELS[tag] || tag}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Reviews summary */}
+                {product.numReviews > 0 && (
+                  <div style={{ marginTop:16, paddingTop:16, borderTop:'1px solid #F5F5F5' }}>
+                    <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                      <StarIcon style={{ width:18, height:18, color:'#FAAD14' }}/>
+                      <span style={{ fontSize:15, fontWeight:800, color:'#141414' }}>{product.rating?.toFixed(1) || '0.0'}</span>
+                      <span style={{ fontSize:12, color:'#8C8C8C' }}>({product.numReviews} review{product.numReviews!==1?'s':''})</span>
+                    </div>
+                  </div>
+                )}
+              </SectionCard>
+
+              {/* Vendor Info Card */}
+              {vendor && (
+                <SectionCard title="Vendor Information" icon={UserCircleIcon} accent="#10B981"
+                  style={{ animation:'fadeUp 0.4s ease 120ms both' }}>
+                  <div style={{ display:'flex', alignItems:'flex-start', gap:14 }}>
+                    {/* Vendor avatar */}
+                    <div style={{ width:52, height:52, borderRadius:26, background:'#E8F5E9',
+                      display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                      <span style={{ fontSize:20, fontWeight:800, color:'#2E7D32' }}>
+                        {vendor.name?.charAt(0)?.toUpperCase() || '?'}
+                      </span>
+                    </div>
+                    <div style={{ flex:1 }}>
+                      <p style={{ margin:0, fontSize:15, fontWeight:700, color:'#141414' }}>{vendor.name || 'Unknown Vendor'}</p>
+                      {vendor.phone && (
+                        <div style={{ display:'flex', alignItems:'center', gap:5, marginTop:4 }}>
+                          <PhoneIcon style={{ width:12, height:12, color:'#8C8C8C' }}/>
+                          <span style={{ fontSize:12, color:'#595959', fontWeight:500 }}>{vendor.phone}</span>
+                        </div>
+                      )}
+                      {vendor.rating !== undefined && (
+                        <div style={{ display:'flex', alignItems:'center', gap:4, marginTop:4 }}>
+                          <StarIcon style={{ width:13, height:13, color:'#FAAD14' }}/>
+                          <span style={{ fontSize:12, fontWeight:700, color:'#141414' }}>{vendor.rating?.toFixed(1)}</span>
+                        </div>
+                      )}
+                    </div>
+                    <Link
+                      to={`/admin-vendor/${vendor._id}`}
+                      style={{
+                        display:'inline-flex', alignItems:'center', gap:5, padding:'8px 14px',
+                        borderRadius:9, background:'#E8F5E9', color:'#2E7D32',
+                        fontSize:12, fontWeight:700, textDecoration:'none', whiteSpace:'nowrap',
+                        border:'1px solid #C8E6C9', transition:'filter 0.15s',
+                      }}
+                      className="pd-btn"
+                    >
+                      View Vendor →
+                    </Link>
+                  </div>
+                </SectionCard>
+              )}
 
               {/* Quick info strip */}
               <div style={{ background:'linear-gradient(135deg,#0F172A 0%,#1E3A5F 100%)',
                 borderRadius:14, padding:'18px 22px', display:'grid', gridTemplateColumns:'repeat(3,1fr)',
                 gap:0, animation:'fadeUp 0.4s ease 140ms both' }}>
                 {[
-                  { label:'Price',     value: price },
-                  { label:'Stock',     value: product.countInStock ?? '—' },
-                  { label:'Category',  value: cat },
+                  { label:'Price',  value: price,          icon:TagIcon },
+                  { label:'Campus',value: CAMPUS_LABELS[product.campus]||product.campus, icon:MapPinIcon },
+                  { label:'Views', value: product.views ?? '0', icon:EyeIcon },
                 ].map((item,i)=>(
                   <div key={i} style={{ textAlign:'center', padding:'0 12px',
                     borderRight: i<2 ? '1px solid rgba(255,255,255,0.08)' : 'none' }}>
@@ -409,7 +481,7 @@ const ProductDetailPage = () => {
                         {product.isAvailable ? 'Available' : 'Unavailable'}
                       </p>
                       <p style={{ margin:0, fontSize:11, color:'#8C8C8C' }}>
-                        {product.isAvailable ? 'Customers can see and order this product' : 'Hidden from the store'}
+                        {product.isAvailable ? 'Students can see and purchase this item' : 'Hidden from the marketplace'}
                       </p>
                     </div>
                   </div>

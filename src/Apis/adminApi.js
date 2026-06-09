@@ -143,3 +143,13 @@ export const deleteBulkNotifications = async (selectedNotifications) => {
     throw error;
   }
 };
+
+export const getProductById =(id)=>API.get(`/api/admin/product/${id}`)
+export const deleteProduct =(id)=>API.delete(`/api/admin/product/${id}`)
+export const updateProduct =(id,formData)=>API.put(`/api/admin/product/${id}`,formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    })
+
+  

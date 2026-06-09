@@ -202,10 +202,10 @@ const AdminNavbar = ({ toggleSidebar, title, showSidebarToggle = true }) => {
                     <p style={{ margin:'0 0 8px', fontSize:10, fontWeight:700, color:'#BFBFBF',
                       textTransform:'uppercase', letterSpacing:'0.07em' }}>Quick Links</p>
                     {[
-                      { label:'Products', route:'/admin-products' },
+                      { label:'Products', route:'/admin/products' },
                       { label:'Orders',   route:'/admin/orders'   },
                       { label:'Users',    route:'/admin/users'    },
-                      { label:'Analytics',route:'/admin/analytics'},
+                      //{ label:'Analytics',route:'/admin/analytics'},
                     ].map(l=>(
                       <button key={l.label} className="an-item" onClick={()=>{ navigate(l.route); setSearchOpen(false); }} style={{
                         width:'100%', textAlign:'left', padding:'8px 10px', borderRadius:8,
@@ -218,7 +218,7 @@ const AdminNavbar = ({ toggleSidebar, title, showSidebarToggle = true }) => {
               )}
             </div>
 
-            {/* ── Notifications ── */}
+            {/* ── Notifications ── 
             <div ref={notifRef} style={{ position:'relative' }}>
               <NavIconBtn onClick={()=>setNotifOpen(v=>!v)} badge={unread} active={notifOpen}>
                 <Bell size={15} color={notifOpen?'#1677FF':'#8C8C8C'}/>
@@ -246,19 +246,19 @@ const AdminNavbar = ({ toggleSidebar, title, showSidebarToggle = true }) => {
                           border:'none', cursor:'pointer', display:'flex', alignItems:'flex-start', gap:10,
                           fontFamily:"'DM Sans',sans-serif", transition:'background 0.12s',
                         }}>
-                          {/* Icon */}
+                          
                           <div style={{ width:34, height:34, borderRadius:9, flexShrink:0,
                             background:cfg.bg, display:'flex', alignItems:'center', justifyContent:'center' }}>
                             <Icon size={15} color={cfg.color}/>
                           </div>
-                          {/* Text */}
+                          
                           <div style={{ flex:1, minWidth:0 }}>
                             <p style={{ margin:'0 0 2px', fontSize:13, fontWeight:n.read?500:700, color:'#141414' }}>{n.title}</p>
                             <p style={{ margin:'0 0 4px', fontSize:11, color:'#8C8C8C', overflow:'hidden',
                               textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{n.message}</p>
                             <p style={{ margin:0, fontSize:10, color:'#BFBFBF', fontWeight:500 }}>{n.time}</p>
                           </div>
-                          {/* Unread dot */}
+                          
                           {!n.read && (
                             <div style={{ width:7, height:7, borderRadius:'50%', background:'#1677FF',
                               flexShrink:0, marginTop:4 }}/>
@@ -280,6 +280,7 @@ const AdminNavbar = ({ toggleSidebar, title, showSidebarToggle = true }) => {
                 </Dropdown>
               )}
             </div>
+            */}
 
             {/* ── Quick actions ── 
             <div ref={actionsRef} style={{ position:'relative' }}>

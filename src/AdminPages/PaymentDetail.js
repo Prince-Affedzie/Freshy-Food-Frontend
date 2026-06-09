@@ -1,731 +1,410 @@
-// src/AdminPages/PaymentDetail.jsx
+// PaymentDetail.jsx
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { 
-  ArrowLeft,
-  DollarSign,
-  User,
-  Package,
-  Calendar,
-  CreditCard,
-  Smartphone,
-  Building,
-  Wallet,
-  CheckCircle,
-  XCircle,
-  Clock,
-  RefreshCw,
-  AlertCircle,
-  Edit,
-  Save,
-  Loader2,
-  Copy,
-  ExternalLink,
-  Receipt,
-  Shield,
-  History
-} from 'lucide-react';
+import { useParams, useNavigate, Link } from 'react-router-dom';
+import {
+  ArrowLeftIcon, CurrencyDollarIcon, UserIcon,
+  CalendarIcon, CreditCardIcon, DevicePhoneMobileIcon,
+  BuildingLibraryIcon, WalletIcon, CheckCircleIcon,
+  XCircleIcon, ClockIcon, ArrowPathIcon,
+  ExclamationTriangleIcon, ClipboardIcon, ReceiptRefundIcon,
+  ShieldCheckIcon, TagIcon, HashtagIcon,
+} from '@heroicons/react/24/outline';
+import { toast, ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import { getSinglePayment, updatePaymentStatus } from '../Apis/adminApi';
-import LoadingSpinner from '../Components/LoadingSpinner';
 import AdminLayout from '../Components/AdminComponents/adminLayout';
-import { toast } from 'react-toastify';
 
+// ─── Config ───────────────────────────────────────────────────────────────────
+const STATUS_CONFIG = {
+  pending:    { label:'Pending',    bg:'#FFF8E1', text:'#F57F17', border:'#FFE082', icon:ClockIcon },
+  processing: { label:'Processing', bg:'#E3F2FD', text:'#1565C0', border:'#90CAF9', icon:ArrowPathIcon },
+  paid:       { label:'Paid',       bg:'#E8F5E9', text:'#2E7D32', border:'#A5D6A7', icon:CheckCircleIcon },
+  refunded:   { label:'Refunded',   bg:'#F3E5F5', text:'#6A1B9A', border:'#CE93D8', icon:ReceiptRefundIcon },
+  failed:     { label:'Failed',     bg:'#FFEBEE', text:'#C62828', border:'#EF9A9A', icon:XCircleIcon },
+};
+
+const METHOD_CONFIG = {
+  mobile_money: { label:'Mobile Money', icon:DevicePhoneMobileIcon, color:'#6A1B9A', bg:'#F3E5F5' },
+  momo:         { label:'Mobile Money', icon:DevicePhoneMobileIcon, color:'#6A1B9A', bg:'#F3E5F5' },
+  card:         { label:'Card Payment', icon:CreditCardIcon,        color:'#1565C0', bg:'#E3F2FD' },
+  bank:         { label:'Bank Transfer',icon:BuildingLibraryIcon,   color:'#2E7D32', bg:'#E8F5E9' },
+  wallet:       { label:'Wallet',       icon:WalletIcon,           color:'#F57F17', bg:'#FFF8E1' },
+};
+
+const STATUS_OPTIONS = ['pending','processing','paid','refunded','failed'];
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+const fmt = (n) => `GH₵ ${Number(n||0).toFixed(2)}`;
+const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-US', {
+  year:'numeric', month:'short', day:'numeric', hour:'2-digit', minute:'2-digit',
+}) : '—';
+
+// ─── Sub-components ───────────────────────────────────────────────────────────
+const InfoCard = ({ icon:Icon, label, value, accent='#1677FF', children, mono }) => (
+  <div style={{ display:'flex', alignItems:'flex-start', gap:12, padding:'14px 0',
+    borderBottom:'1px solid #F5F5F5' }}>
+    <div style={{ width:36, height:36, borderRadius:10, background:accent+'18',
+      display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+      <Icon style={{ width:17, height:17, color:accent }}/>
+    </div>
+    <div style={{ flex:1, minWidth:0 }}>
+      <p style={{ margin:'0 0 2px', fontSize:10, fontWeight:700, color:'#BFBFBF',
+        textTransform:'uppercase', letterSpacing:'0.06em' }}>{label}</p>
+      {mono ? (
+        <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+          <code style={{ fontSize:12, fontWeight:600, color:'#595959', fontFamily:'monospace',
+            overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{value||'—'}</code>
+          {value && (
+            <button onClick={() => { navigator.clipboard.writeText(value); toast.success('Copied!'); }}
+              style={{ background:'none', border:'none', cursor:'pointer', color:'#BFBFBF', padding:2, display:'flex' }}>
+              <ClipboardIcon style={{ width:13, height:13 }}/>
+            </button>
+          )}
+        </div>
+      ) : (
+        <p style={{ margin:0, fontSize:14, fontWeight:600, color:'#141414' }}>{value||'—'}</p>
+      )}
+      {children}
+    </div>
+  </div>
+);
+
+const Badge = ({ text, bg, color, border }) => (
+  <span style={{ padding:'4px 12px', borderRadius:20, fontSize:12, fontWeight:700,
+    background:bg, color, border:`1px solid ${border}`, whiteSpace:'nowrap',
+    display:'inline-flex', alignItems:'center', gap:5 }}>
+    {text}
+  </span>
+);
+
+const Section = ({ title, icon:Icon, accent='#1677FF', children }) => (
+  <div style={{ background:'#fff', borderRadius:14, border:'1px solid #F0F0F0',
+    overflow:'hidden', boxShadow:'0 1px 4px rgba(0,0,0,0.05)', marginBottom:16 }}>
+    <div style={{ display:'flex', alignItems:'center', gap:9, padding:'13px 18px',
+      borderBottom:'1px solid #F5F5F5', background:'#FAFAFA' }}>
+      <div style={{ width:28, height:28, borderRadius:7, background:accent+'18',
+        display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+        <Icon style={{ width:14, height:14, color:accent }}/>
+      </div>
+      <span style={{ fontSize:13, fontWeight:700, color:'#141414' }}>{title}</span>
+    </div>
+    <div style={{ padding:'16px 18px' }}>{children}</div>
+  </div>
+);
+
+// ─── Main Component ───────────────────────────────────────────────────────────
 const PaymentDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  
+
   const [payment, setPayment] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [updating, setUpdating] = useState(false);
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [newStatus, setNewStatus] = useState('');
-  
-  const statusOptions = [
-    { value: 'pending', label: 'Pending', color: 'bg-yellow-100 text-yellow-800', icon: Clock },
-    { value: 'processing', label: 'Processing', color: 'bg-blue-100 text-blue-800', icon: RefreshCw },
-    { value: 'paid', label: 'Paid', color: 'bg-green-100 text-green-800', icon: CheckCircle },
-    { value: 'refunded', label: 'Refunded', color: 'bg-purple-100 text-purple-800', icon: RefreshCw },
-    { value: 'failed', label: 'Failed', color: 'bg-red-100 text-red-800', icon: XCircle },
-  ];
+  const [updating, setUpdating] = useState(false);
 
-  const paymentMethods = {
-    mobile_money: { label: 'Mobile Money', icon: Smartphone, color: 'bg-purple-100 text-purple-800' },
-    momo: { label: 'Mobile Money', icon: Smartphone, color: 'bg-purple-100 text-purple-800' },
-    card: { label: 'Credit Card', icon: CreditCard, color: 'bg-blue-100 text-blue-800' },
-    bank: { label: 'Bank Transfer', icon: Building, color: 'bg-emerald-100 text-emerald-800' },
-    wallet: { label: 'Wallet', icon: Wallet, color: 'bg-amber-100 text-amber-800' },
-  };
-
-  const loadPaymentData = async () => {
+  const loadPayment = async () => {
     setLoading(true);
     setError(null);
-    
     try {
-      const response = await getSinglePayment(id);
-      setPayment(response.data.data);
+      const res = await getSinglePayment(id);
+      if (res.data?.success) setPayment(res.data.data);
+      else throw new Error('Failed to load');
     } catch (err) {
-      setError('Failed to load payment details. Please try again.');
-      console.error('Payment detail error:', err);
+      setError(err?.response?.data?.message || 'Failed to load payment details');
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    loadPaymentData();
-  }, [id]);
+  useEffect(() => { loadPayment(); }, [id]);
 
   const handleStatusUpdate = async () => {
     if (!newStatus || newStatus === payment?.status) {
       setShowStatusModal(false);
       return;
     }
-
     setUpdating(true);
     try {
       await updatePaymentStatus(id, newStatus);
-      
-      // Update local state
-      setPayment(prev => ({
-        ...prev,
-        status: newStatus
-      }));
-      
-      toast.success('Payment status updated successfully!');
+      setPayment(prev => ({ ...prev, status: newStatus }));
+      toast.success('Status updated successfully!');
       setShowStatusModal(false);
       setNewStatus('');
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to update status');
-      console.error('Status update error:', err);
+      toast.error(err?.response?.data?.message || 'Failed to update status');
     } finally {
       setUpdating(false);
     }
   };
 
-  const copyToClipboard = (text) => {
-    navigator.clipboard.writeText(text);
-    toast.success('Copied to clipboard!');
-  };
-
-  const formatCurrency = (amount, currency = 'GHS') => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: currency,
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(amount);
-  };
-
-  const formatDate = (date) => {
-    return new Date(date).toLocaleDateString('en-US', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
-
-  const getStatusConfig = (status) => {
-    return statusOptions.find(opt => opt.value === status) || statusOptions[0];
-  };
-
-  const getPaymentMethodConfig = (method) => {
-    return paymentMethods[method] || { label: 'Unknown', icon: CreditCard, color: 'bg-gray-100 text-gray-800' };
-  };
-
+  // ── Loading ──────────────────────────────────────────────────────────────
   if (loading) {
     return (
-      <AdminLayout title="Payment Details">
-        <div className="min-h-screen flex items-center justify-center">
-          <LoadingSpinner size="large" message="Loading payment details..." />
+      <AdminLayout>
+        <div style={{ display:'flex', flexDirection:'column', alignItems:'center',
+          justifyContent:'center', minHeight:'60vh', gap:14, fontFamily:"'DM Sans',sans-serif" }}>
+          <div style={{ width:36, height:36, borderRadius:'50%', border:'3px solid #F0F0F0',
+            borderTopColor:'#1677FF', animation:'spin 0.7s linear infinite' }}/>
+          <p style={{ fontSize:13, color:'#8C8C8C', margin:0 }}>Loading payment…</p>
         </div>
       </AdminLayout>
     );
   }
 
-  if (error) {
+  // ── Error ────────────────────────────────────────────────────────────────
+  if (error || !payment) {
     return (
-      <AdminLayout title="Payment Details">
-        <div className="min-h-screen bg-gray-50 p-6">
-          <button
-            onClick={() => navigate(-1)}
-            className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-6"
-          >
-            <ArrowLeft size={20} />
-            Back to Payments
-          </button>
-          
-          <div className="max-w-md mx-auto bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center">
-            <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">{error}</h3>
-            <p className="text-gray-500 mb-6">The payment you're looking for might not exist or you don't have permission to view it.</p>
-            <div className="flex gap-3 justify-center">
-              <button
-                onClick={loadPaymentData}
-                className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
-              >
-                Try Again
-              </button>
-              <button
-                onClick={() => navigate('/admin/payments')}
-                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-              >
-                View All Payments
-              </button>
-            </div>
+      <AdminLayout>
+        <div style={{ display:'flex', flexDirection:'column', alignItems:'center',
+          justifyContent:'center', minHeight:'60vh', gap:12, padding:24, fontFamily:"'DM Sans',sans-serif" }}>
+          <div style={{ width:56, height:56, borderRadius:28, background:'#FFEBEE',
+            display:'flex', alignItems:'center', justifyContent:'center' }}>
+            <ExclamationTriangleIcon style={{ width:28, height:28, color:'#FF4D4F' }}/>
+          </div>
+          <h2 style={{ margin:0, fontSize:18, fontWeight:800, color:'#141414' }}>Payment Not Found</h2>
+          <p style={{ margin:0, fontSize:13, color:'#8C8C8C' }}>{error}</p>
+          <div style={{ display:'flex', gap:8, marginTop:8 }}>
+            <button onClick={loadPayment} style={{ padding:'9px 18px', borderRadius:9,
+              border:'1.5px solid #E8E8E8', background:'#fff', fontSize:13, fontWeight:700,
+              cursor:'pointer', fontFamily:"'DM Sans',sans-serif", color:'#595959' }}>Retry</button>
+            <Link to="/admin-payments" style={{ padding:'9px 18px', borderRadius:9,
+              background:'#1677FF', color:'#fff', fontSize:13, fontWeight:700,
+              textDecoration:'none', fontFamily:"'DM Sans',sans-serif" }}>All Payments</Link>
           </div>
         </div>
       </AdminLayout>
     );
   }
 
-  const statusConfig = getStatusConfig(payment.status);
-  const StatusIcon = statusConfig.icon;
-  const paymentMethodConfig = getPaymentMethodConfig(payment.paymentMethod);
-  const PaymentMethodIcon = paymentMethodConfig.icon;
+  const sc = STATUS_CONFIG[payment.status] || STATUS_CONFIG.pending;
+  const SIcon = sc.icon;
+  const mc = METHOD_CONFIG[payment.paymentMethod] || METHOD_CONFIG.card;
+  const MIcon = mc.icon;
 
   return (
-    <AdminLayout title="Payment Details">
-      <div className="min-h-screen bg-gray-50 p-4 md:p-6">
-        {/* Header */}
-        <div className="mb-6">
-          <button
-            onClick={() => navigate('/admin/payments')}
-            className="flex items-center gap-2 text-emerald-600 hover:text-emerald-700 mb-4"
-          >
-            <ArrowLeft size={20} />
-            Back to Payments
-          </button>
-          
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <AdminLayout>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap');
+        * { box-sizing:border-box; }
+        @keyframes fadeUp { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+        @keyframes spin { to{transform:rotate(360deg)} }
+        .pd-btn:hover { filter:brightness(0.93); }
+        @media (max-width:768px) {
+          .pd-layout { grid-template-columns:1fr !important; }
+          .pd-hdr { flex-direction:column !important; align-items:flex-start !important; }
+        }
+      `}</style>
+
+      <ToastContainer position="top-right" autoClose={3000} theme="light"/>
+
+      <div style={{ fontFamily:"'DM Sans',sans-serif", background:'#FAFAFA', minHeight:'100vh', color:'#262626' }}>
+
+        {/* Sticky header */}
+        <div style={{ position:'sticky', top:0, zIndex:100, background:'#fff',
+          borderBottom:'1px solid #F0F0F0', boxShadow:'0 1px 4px rgba(0,0,0,0.05)' }}>
+          <div className="pd-hdr" style={{ maxWidth:1100, margin:'0 auto', padding:'12px 20px',
+            display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:10 }}>
             <div>
-              <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
-                Payment Details
+              <nav style={{ display:'flex', alignItems:'center', gap:6, fontSize:11, color:'#8C8C8C', marginBottom:3 }}>
+                <Link to="/admin-payments" style={{ color:'#8C8C8C', textDecoration:'none', fontWeight:600 }}>Payments</Link>
+                <span>/</span>
+                <span style={{ color:'#262626', fontWeight:700 }}>Payment Details</span>
+              </nav>
+              <h1 style={{ margin:0, fontSize:17, fontWeight:800, color:'#141414', letterSpacing:'-0.3px' }}>
+                Transaction #{payment.transactionRef || payment._id?.slice(-8).toUpperCase()}
               </h1>
-              <p className="text-gray-600 mt-1">
-                Transaction ID: <span className="font-mono">{payment._id.slice(-8)}</span>
-              </p>
             </div>
-            
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => setShowStatusModal(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-              >
-                <Edit size={18} />
-                Update Status
+            <div style={{ display:'flex', gap:8 }}>
+              <button onClick={() => setShowStatusModal(true)} className="pd-btn" style={{
+                display:'inline-flex', alignItems:'center', gap:6, padding:'8px 14px',
+                border:'1.5px solid #E8E8E8', borderRadius:9, fontSize:13, fontWeight:600,
+                color:'#595959', background:'#fff', cursor:'pointer', fontFamily:"'DM Sans',sans-serif" }}>
+                <ArrowPathIcon style={{ width:14, height:14 }}/> Update Status
               </button>
             </div>
           </div>
         </div>
 
-        {/* Status Update Modal */}
-        {showStatusModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-xl shadow-xl max-w-md w-full">
-              <div className="p-6 border-b border-gray-200">
-                <h3 className="text-lg font-semibold text-gray-900">Update Payment Status</h3>
-                <p className="text-gray-600 text-sm mt-1">Select the new status for this payment</p>
-              </div>
-              
-              <div className="p-6">
-                <div className="space-y-3 mb-6">
-                  {statusOptions.map((option) => {
-                    const OptionIcon = option.icon;
-                    return (
-                      <button
-                        key={option.value}
-                        onClick={() => setNewStatus(option.value)}
-                        className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg border transition-all ${
-                          newStatus === option.value 
-                            ? 'border-emerald-500 bg-emerald-50' 
-                            : 'border-gray-200 hover:border-emerald-200 hover:bg-emerald-50'
-                        }`}
-                      >
-                        <div className={`p-2 rounded-lg ${option.color.split(' ')[0]}`}>
-                          <OptionIcon className={option.color.split(' ')[1]} size={20} />
-                        </div>
-                        <span className="font-medium">{option.label}</span>
-                        {payment.status === option.value && (
-                          <span className="ml-auto text-sm text-gray-500">Current</span>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-                
-                <div className="flex gap-3">
-                  <button
-                    onClick={() => {
-                      setShowStatusModal(false);
-                      setNewStatus('');
-                    }}
-                    className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleStatusUpdate}
-                    disabled={updating || !newStatus || newStatus === payment.status}
-                    className="flex-1 px-4 py-2.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
-                  >
-                    {updating ? (
-                      <>
-                        <Loader2 className="animate-spin" size={18} />
-                        Updating...
-                      </>
-                    ) : (
-                      <>
-                        <Save size={18} />
-                        Update Status
-                      </>
+        {/* Body */}
+        <div style={{ maxWidth:1100, margin:'0 auto', padding:'24px 16px 56px' }}>
+          <div className="pd-layout" style={{ display:'grid', gridTemplateColumns:'1fr 360px', gap:16, alignItems:'start' }}>
+
+            {/* LEFT: Main Info */}
+            <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
+              {/* Payment Overview */}
+              <Section title="Payment Overview" icon={CurrencyDollarIcon} accent="#10B981" style={{ animation:'fadeUp 0.4s ease both' }}>
+                <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))', gap:14 }}>
+                  <div style={{ textAlign:'center', padding:'16px', background:'#FAFAFA', borderRadius:12, border:'1px solid #F0F0F0' }}>
+                    <p style={{ margin:'0 0 4px', fontSize:10, fontWeight:700, color:'#BFBFBF', textTransform:'uppercase' }}>Amount</p>
+                    <p style={{ margin:0, fontSize:26, fontWeight:800, color:'#141414' }}>{fmt(payment.amount)}</p>
+                    <p style={{ margin:'2px 0 0', fontSize:11, color:'#8C8C8C' }}>{payment.currency}</p>
+                  </div>
+                  <div style={{ textAlign:'center', padding:'16px', background:sc.bg, borderRadius:12, border:`1px solid ${sc.border}` }}>
+                    <p style={{ margin:'0 0 4px', fontSize:10, fontWeight:700, color:'#BFBFBF', textTransform:'uppercase' }}>Status</p>
+                    <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6 }}>
+                      <SIcon style={{ width:20, height:20, color:sc.text }}/>
+                      <p style={{ margin:0, fontSize:18, fontWeight:700, color:sc.text }}>{sc.label}</p>
+                    </div>
+                  </div>
+                  <div style={{ textAlign:'center', padding:'16px', background:mc.bg, borderRadius:12, border:'1px solid #E8E8E8' }}>
+                    <p style={{ margin:'0 0 4px', fontSize:10, fontWeight:700, color:'#BFBFBF', textTransform:'uppercase' }}>Method</p>
+                    <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6 }}>
+                      <MIcon style={{ width:18, height:18, color:mc.color }}/>
+                      <p style={{ margin:0, fontSize:15, fontWeight:700, color:mc.color }}>{mc.label}</p>
+                    </div>
+                    {payment.paymentChannel && (
+                      <p style={{ margin:'4px 0 0', fontSize:11, color:'#8C8C8C' }}>{payment.paymentChannel}</p>
                     )}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Main Content */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left Column - Payment Info */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Payment Overview Card */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-              <div className="p-6 border-b border-gray-200">
-                <h2 className="text-lg font-semibold text-gray-900">Payment Overview</h2>
-              </div>
-              
-              <div className="p-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Amount */}
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-500">Amount</label>
-                    <div className="flex items-center gap-3">
-                      <div className="p-3 bg-emerald-100 rounded-lg">
-                        <DollarSign className="text-emerald-600" size={24} />
-                      </div>
-                      <div>
-                        <div className="text-2xl font-bold text-gray-900">
-                          {formatCurrency(payment.amount, payment.currency)}
-                        </div>
-                        <div className="text-sm text-gray-500">{payment.currency}</div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Status */}
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-500">Status</label>
-                    <div className="flex items-center gap-3">
-                      <div className={`p-3 rounded-lg ${statusConfig.color.split(' ')[0]}`}>
-                        <StatusIcon className={statusConfig.color.split(' ')[1]} size={24} />
-                      </div>
-                      <div>
-                        <div className="text-lg font-semibold text-gray-900">
-                          {statusConfig.label}
-                        </div>
-                        <div className="text-sm text-gray-500">
-                          Last updated: {payment.updatedAt ? formatDate(payment.updatedAt) : 'N/A'}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Payment Method */}
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-500">Payment Method</label>
-                    <div className="flex items-center gap-3">
-                      <div className={`p-3 rounded-lg ${paymentMethodConfig.color.split(' ')[0]}`}>
-                        <PaymentMethodIcon className={paymentMethodConfig.color.split(' ')[1]} size={24} />
-                      </div>
-                      <div>
-                        <div className="text-lg font-semibold text-gray-900">
-                          {paymentMethodConfig.label}
-                        </div>
-                        {payment.paymentChannel && (
-                          <div className="text-sm text-gray-500">
-                            Channel: {payment.paymentChannel}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Dates */}
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-500">Timestamps</label>
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2 text-sm">
-                        <Calendar size={16} className="text-gray-400" />
-                        <span>Created: {formatDate(payment.createdAt)}</span>
-                      </div>
-                      {payment.updatedAt !== payment.createdAt && (
-                        <div className="flex items-center gap-2 text-sm">
-                          <History size={16} className="text-gray-400" />
-                          <span>Updated: {formatDate(payment.updatedAt)}</span>
-                        </div>
-                      )}
-                    </div>
                   </div>
                 </div>
-              </div>
-            </div>
+              </Section>
 
-            {/* Transaction Details */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-              <div className="p-6 border-b border-gray-200">
-                <h2 className="text-lg font-semibold text-gray-900">Transaction Details</h2>
-              </div>
-              
-              <div className="p-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Transaction Reference */}
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-500">Transaction Reference</label>
-                    <div className="flex items-center gap-2">
-                      <code className="flex-1 font-mono bg-gray-50 p-3 rounded-lg border border-gray-200">
-                        {payment.transactionRef || 'Not provided'}
-                      </code>
-                      {payment.transactionRef && (
-                        <button
-                          onClick={() => copyToClipboard(payment.transactionRef)}
-                          className="p-2 text-gray-400 hover:text-gray-600"
-                          title="Copy to clipboard"
-                        >
-                          <Copy size={18} />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Payment ID */}
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-500">Payment ID</label>
-                    <div className="flex items-center gap-2">
-                      <code className="flex-1 font-mono bg-gray-50 p-3 rounded-lg border border-gray-200">
-                        {payment._id}
-                      </code>
-                      <button
-                        onClick={() => copyToClipboard(payment._id)}
-                        className="p-2 text-gray-400 hover:text-gray-600"
-                        title="Copy to clipboard"
-                      >
-                        <Copy size={18} />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Mobile Money Details */}
-                  {payment.mobileMoneyNumber && (
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-500">Mobile Money Number</label>
-                      <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
-                        <Smartphone className="text-gray-400" size={20} />
-                        <span className="font-medium">{payment.mobileMoneyNumber}</span>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Currency */}
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-500">Currency</label>
-                    <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
-                      <div className="font-medium">{payment.currency}</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Order Information */}
-            {payment.orderId && (
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                <div className="p-6 border-b border-gray-200">
-                  <div className="flex items-center justify-between">
-                    <h2 className="text-lg font-semibold text-gray-900">Order Information</h2>
-                    <button
-                      onClick={() => navigate(`/admin/order/${payment.orderId._id}`)}
-                      className="flex items-center gap-2 text-sm text-emerald-600 hover:text-emerald-700"
-                    >
-                      View Order
-                      <ExternalLink size={16} />
-                    </button>
-                  </div>
-                </div>
-                
-                <div className="p-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-500">Order ID</label>
-                      <div className="flex items-center gap-2">
-                        <code className="flex-1 font-mono bg-gray-50 p-3 rounded-lg border border-gray-200">
-                          {payment.orderId._id}
-                        </code>
-                        <button
-                          onClick={() => copyToClipboard(payment.orderId._id)}
-                          className="p-2 text-gray-400 hover:text-gray-600"
-                        >
-                          <Copy size={18} />
-                        </button>
-                      </div>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-500">Order Status</label>
-                      <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full ${getStatusConfig(payment.orderId.status).color}`}>
-                        <StatusIcon size={16} />
-                        <span className="text-sm font-medium">
-                          {payment.orderId.status.charAt(0).toUpperCase() + payment.orderId.status.slice(1)}
-                        </span>
-                      </div>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-500">Order Total</label>
-                      <div className="text-lg font-bold text-gray-900">
-                        {formatCurrency(payment.orderId.totalPrice, payment.currency)}
-                      </div>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-500">Payment Status</label>
-                      <div className="flex items-center gap-2">
-                        <Shield size={18} className={
-                          payment.orderId.isPaid ? 'text-green-500' : 'text-yellow-500'
-                        } />
-                        <span className="font-medium">
-                          {payment.orderId.isPaid ? 'Paid' : 'Unpaid'}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Right Column - Customer Info & Actions */}
-          <div className="space-y-6">
-            {/* Customer Information */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-              <div className="p-6 border-b border-gray-200">
-                <h2 className="text-lg font-semibold text-gray-900">Customer Information</h2>
-              </div>
-              
-              <div className="p-6">
-                <div className="flex items-start gap-4 mb-6">
-                  <div className="p-3 bg-blue-100 rounded-lg">
-                    <User className="text-blue-600" size={24} />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-gray-900">
-                      {payment.user?.firstName} {payment.user?.lastName}
-                    </h3>
-                    <p className="text-gray-500">Customer</p>
-                  </div>
-                </div>
-                
-                <div className="space-y-4">
-                  <div>
-                    <label className="text-sm font-medium text-gray-500 block mb-1">
-                      Email Address
-                    </label>
-                    <div className="flex items-center gap-2">
-                      <div className="flex-1 p-2.5 bg-gray-50 rounded-lg border border-gray-200">
-                        {payment.user?.email || 'N/A'}
-                      </div>
-                      {payment.user?.email && (
-                        <button
-                          onClick={() => copyToClipboard(payment.user.email)}
-                          className="p-2 text-gray-400 hover:text-gray-600"
-                        >
-                          <Copy size={16} />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <label className="text-sm font-medium text-gray-500 block mb-1">
-                      Phone Number
-                    </label>
-                    <div className="flex items-center gap-2">
-                      <div className="flex-1 p-2.5 bg-gray-50 rounded-lg border border-gray-200">
-                        {payment.user?.phone || 'N/A'}
-                      </div>
-                      {payment.user?.phone && (
-                        <button
-                          onClick={() => copyToClipboard(payment.user.phone)}
-                          className="p-2 text-gray-400 hover:text-gray-600"
-                        >
-                          <Copy size={16} />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <label className="text-sm font-medium text-gray-500 block mb-1">
-                      Customer ID
-                    </label>
-                    <div className="flex items-center gap-2">
-                      <code className="flex-1 font-mono text-xs bg-gray-50 p-2.5 rounded-lg border border-gray-200">
-                        {payment.user?._id || 'N/A'}
-                      </code>
-                      {payment.user?._id && (
-                        <button
-                          onClick={() => copyToClipboard(payment.user._id)}
-                          className="p-2 text-gray-400 hover:text-gray-600"
-                        >
-                          <Copy size={16} />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-                
-                <button
-                  onClick={() => navigate(`/admin/users/${payment.user?._id}`)}
-                  className="w-full mt-6 flex items-center justify-center gap-2 px-4 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  <User size={18} />
-                  View Customer Profile
-                </button>
-              </div>
-            </div>
-
-            {/* Quick Actions */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-              <div className="p-6 border-b border-gray-200">
-                <h2 className="text-lg font-semibold text-gray-900">Quick Actions</h2>
-              </div>
-              
-              <div className="p-6 space-y-3">
-                <button
-                  onClick={() => setShowStatusModal(true)}
-                  className="w-full flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors group"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-blue-100 rounded-lg group-hover:bg-blue-200 transition-colors">
-                      <Edit className="text-blue-600" size={18} />
-                    </div>
-                    <div className="text-left">
-                      <div className="font-medium text-gray-900">Update Status</div>
-                      <div className="text-sm text-gray-500">Change payment status</div>
-                    </div>
-                  </div>
-                </button>
-
-                {payment.orderId && (
-                  <button
-                    onClick={() => navigate(`/admin/order/${payment.orderId._id}`)}
-                    className="w-full flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors group"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-emerald-100 rounded-lg group-hover:bg-emerald-200 transition-colors">
-                        <Package className="text-emerald-600" size={18} />
-                      </div>
-                      <div className="text-left">
-                        <div className="font-medium text-gray-900">View Order</div>
-                        <div className="text-sm text-gray-500">See order details</div>
-                      </div>
-                    </div>
-                  </button>
+              {/* Transaction Details */}
+              <Section title="Transaction Details" icon={HashtagIcon} accent="#1677FF" style={{ animation:'fadeUp 0.4s ease 60ms both' }}>
+                <InfoCard icon={TagIcon} label="Transaction Reference" value={payment.transactionRef} accent="#1677FF" mono />
+                <InfoCard icon={HashtagIcon} label="Payment ID" value={payment._id} accent="#595959" mono />
+                {payment.mobileMoneyNumber && (
+                  <InfoCard icon={DevicePhoneMobileIcon} label="Mobile Money Number" value={payment.mobileMoneyNumber} accent="#6A1B9A" />
                 )}
-
-                <button
-                  onClick={() => navigate(`/admin/users/${payment.user?._id}`)}
-                  className="w-full flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors group"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-purple-100 rounded-lg group-hover:bg-purple-200 transition-colors">
-                      <User className="text-purple-600" size={18} />
-                    </div>
-                    <div className="text-left">
-                      <div className="font-medium text-gray-900">View Customer</div>
-                      <div className="text-sm text-gray-500">Customer profile</div>
-                    </div>
-                  </div>
-                </button>
-
-                <button className="w-full flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors group">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-amber-100 rounded-lg group-hover:bg-amber-200 transition-colors">
-                      <Receipt className="text-amber-600" size={18} />
-                    </div>
-                    <div className="text-left">
-                      <div className="font-medium text-gray-900">Generate Receipt</div>
-                      <div className="text-sm text-gray-500">Download PDF receipt</div>
-                    </div>
-                  </div>
-                </button>
-              </div>
+                <InfoCard icon={CalendarIcon} label="Created" value={fmtDate(payment.createdAt)} accent="#8C8C8C" />
+                {payment.updatedAt !== payment.createdAt && (
+                  <InfoCard icon={ArrowPathIcon} label="Last Updated" value={fmtDate(payment.updatedAt)} accent="#8C8C8C" />
+                )}
+              </Section>
             </div>
 
-            {/* Status History (Placeholder) */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-              <div className="p-6 border-b border-gray-200">
-                <h2 className="text-lg font-semibold text-gray-900">Recent Activity</h2>
-              </div>
-              
-              <div className="p-6">
-                <div className="space-y-4">
-                  <div className="flex items-start gap-3">
-                    <div className="p-1.5 bg-green-100 rounded-full">
-                      <CheckCircle className="text-green-600" size={14} />
-                    </div>
-                    <div>
-                      <div className="font-medium text-gray-900">Payment created</div>
-                      <div className="text-sm text-gray-500">
-                        {formatDate(payment.createdAt)}
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {payment.updatedAt !== payment.createdAt && (
-                    <div className="flex items-start gap-3">
-                      <div className="p-1.5 bg-blue-100 rounded-full">
-                        <RefreshCw className="text-blue-600" size={14} />
+            {/* RIGHT: Customer & Actions */}
+            <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
+              {/* Customer */}
+              <Section title="Customer" icon={UserIcon} accent="#7C3AED" style={{ animation:'fadeUp 0.4s ease 80ms both' }}>
+                {payment.user ? (
+                  <>
+                    <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:12 }}>
+                      <div style={{ width:44, height:44, borderRadius:22, background:'#EDE9FE',
+                        display:'flex', alignItems:'center', justifyContent:'center' }}>
+                        <span style={{ fontSize:18, fontWeight:800, color:'#7C3AED' }}>
+                          {payment.user.firstName?.charAt(0)?.toUpperCase() || '?'}
+                        </span>
                       </div>
                       <div>
-                        <div className="font-medium text-gray-900">Last updated</div>
-                        <div className="text-sm text-gray-500">
-                          {formatDate(payment.updatedAt)}
-                        </div>
+                        <p style={{ margin:0, fontSize:15, fontWeight:700, color:'#141414' }}>
+                          {payment.user.firstName} {payment.user.lastName}
+                        </p>
+                        <p style={{ margin:'2px 0 0', fontSize:11, color:'#8C8C8C' }}>Customer</p>
                       </div>
+                    </div>
+                    <InfoCard icon={DevicePhoneMobileIcon} label="Phone" value={payment.user.phone} accent="#6A1B9A" />
+                    {payment.user.email && (
+                      <InfoCard icon={CreditCardIcon} label="Email" value={payment.user.email} accent="#1565C0" />
+                    )}
+                  </>
+                ) : (
+                  <p style={{ fontSize:13, color:'#8C8C8C', textAlign:'center', padding:'16px 0' }}>No customer data</p>
+                )}
+              </Section>
+
+              {/* Quick Actions */}
+              <Section title="Quick Actions" icon={ArrowPathIcon} accent="#F59E0B" style={{ animation:'fadeUp 0.4s ease 120ms both' }}>
+                <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                  <button onClick={() => setShowStatusModal(true)} style={{
+                    display:'flex', alignItems:'center', gap:10, padding:'11px 14px',
+                    borderRadius:10, border:'1.5px solid #E8E8E8', background:'#fff',
+                    fontSize:13, fontWeight:600, color:'#595959', cursor:'pointer',
+                    fontFamily:"'DM Sans',sans-serif", textAlign:'left', width:'100%' }}>
+                    <ArrowPathIcon style={{ width:16, height:16, color:'#1677FF' }}/>
+                    Update Payment Status
+                  </button>
+                  <Link to="/admin-payments" style={{
+                    display:'flex', alignItems:'center', gap:10, padding:'11px 14px',
+                    borderRadius:10, border:'1.5px solid #E8E8E8', background:'#fff',
+                    fontSize:13, fontWeight:600, color:'#595959', textDecoration:'none',
+                    fontFamily:"'DM Sans',sans-serif" }}>
+                    <ArrowLeftIcon style={{ width:16, height:16, color:'#8C8C8C' }}/>
+                    All Payments
+                  </Link>
+                </div>
+              </Section>
+
+              {/* Activity */}
+              <Section title="Activity Log" icon={ClockIcon} accent="#8C8C8C" style={{ animation:'fadeUp 0.4s ease 160ms both' }}>
+                <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                  <div style={{ display:'flex', alignItems:'center', gap:8, fontSize:12 }}>
+                    <div style={{ width:8, height:8, borderRadius:'50%', background:'#52C41A', flexShrink:0 }}/>
+                    <span style={{ color:'#595959' }}>Payment created</span>
+                    <span style={{ color:'#BFBFBF', marginLeft:'auto' }}>{fmtDate(payment.createdAt)}</span>
+                  </div>
+                  {payment.updatedAt !== payment.createdAt && (
+                    <div style={{ display:'flex', alignItems:'center', gap:8, fontSize:12 }}>
+                      <div style={{ width:8, height:8, borderRadius:'50%', background:'#1677FF', flexShrink:0 }}/>
+                      <span style={{ color:'#595959' }}>Status updated to <strong>{sc.label}</strong></span>
+                      <span style={{ color:'#BFBFBF', marginLeft:'auto' }}>{fmtDate(payment.updatedAt)}</span>
                     </div>
                   )}
                 </div>
-              </div>
+              </Section>
             </div>
-          </div>
-        </div>
-
-        {/* Footer Actions */}
-        <div className="mt-8 pt-6 border-t border-gray-200">
-          <div className="flex flex-col sm:flex-row justify-end gap-3">
-            <button
-              onClick={() => navigate('/admin/payments')}
-              className="px-6 py-3 border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-gray-50 transition-colors"
-            >
-              Back to Payments
-            </button>
-            <button
-              onClick={() => {
-                toast.info('Print functionality coming soon!');
-              }}
-              className="px-6 py-3 bg-emerald-600 text-white rounded-lg font-medium hover:bg-emerald-700 transition-colors"
-            >
-              Print Receipt
-            </button>
           </div>
         </div>
       </div>
+
+      {/* Status Update Modal */}
+      {showStatusModal && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.4)', backdropFilter:'blur(4px)',
+          zIndex:9000, display:'flex', alignItems:'center', justifyContent:'center', padding:20,
+          animation:'fadeIn 0.2s ease' }} onClick={() => setShowStatusModal(false)}>
+          <div style={{ background:'#fff', borderRadius:16, maxWidth:400, width:'100%',
+            padding:'28px 28px 22px', boxShadow:'0 24px 64px rgba(0,0,0,0.18)',
+            animation:'fadeUp 0.25s ease' }} onClick={e => e.stopPropagation()}>
+            <h3 style={{ margin:'0 0 8px', fontSize:17, fontWeight:800, color:'#141414' }}>Update Status</h3>
+            <p style={{ margin:'0 0 20px', fontSize:13, color:'#8C8C8C' }}>
+              Current: <Badge text={sc.label} bg={sc.bg} color={sc.text} border={sc.border} />
+            </p>
+
+            <div style={{ display:'flex', flexDirection:'column', gap:8, marginBottom:20 }}>
+              {STATUS_OPTIONS.map(s => {
+                const cfg = STATUS_CONFIG[s] || STATUS_CONFIG.pending;
+                const CIcon = cfg.icon;
+                const active = newStatus === s;
+                const isCurrent = payment.status === s;
+                return (
+                  <button key={s} onClick={() => setNewStatus(s)} style={{
+                    display:'flex', alignItems:'center', gap:10, padding:'11px 14px',
+                    borderRadius:10, border: active?`1.5px solid ${cfg.text}`:'1.5px solid #E8E8E8',
+                    background: active?cfg.bg:'#fff', cursor:'pointer',
+                    fontFamily:"'DM Sans',sans-serif", textAlign:'left', width:'100%',
+                    transition:'all 0.15s',
+                  }}>
+                    <div style={{ width:32, height:32, borderRadius:8, background:cfg.bg,
+                      display:'flex', alignItems:'center', justifyContent:'center' }}>
+                      <CIcon style={{ width:16, height:16, color:cfg.text }}/>
+                    </div>
+                    <span style={{ flex:1, fontSize:14, fontWeight:600, color:'#141414' }}>{cfg.label}</span>
+                    {isCurrent && <span style={{ fontSize:11, color:'#8C8C8C', fontWeight:600 }}>Current</span>}
+                    {active && <CheckCircleIcon style={{ width:18, height:18, color:cfg.text }}/>}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div style={{ display:'flex', justifyContent:'flex-end', gap:10 }}>
+              <button onClick={() => { setShowStatusModal(false); setNewStatus(''); }} style={{
+                padding:'9px 18px', borderRadius:9, border:'1.5px solid #E8E8E8', background:'#fff',
+                fontSize:13, fontWeight:700, cursor:'pointer', fontFamily:"'DM Sans',sans-serif", color:'#595959' }}>
+                Cancel
+              </button>
+              <button onClick={handleStatusUpdate} disabled={updating || !newStatus || newStatus===payment.status} style={{
+                padding:'9px 18px', borderRadius:9, border:'none', background: updating?'#BFBFBF':'#1677FF',
+                color:'#fff', fontSize:13, fontWeight:700, cursor: updating?'not-allowed':'pointer',
+                fontFamily:"'DM Sans',sans-serif", opacity: updating?0.7:1 }}>
+                {updating ? 'Updating…' : 'Confirm'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </AdminLayout>
   );
 };
