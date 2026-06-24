@@ -5,9 +5,21 @@ import React, { useState, useEffect } from 'react';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import Header from './Components/Header';
+import Navbar from './Components/Navbar';
 import Footer from './Components/Footer';
+import { AuthProvider } from './context/AuthContext';
+import { CartProvider } from './context/CartContext';
+
+// Guest Screens
+import GuestHome from './Pages/GuestPages/GuestHomePage';
+import VendorAppPage from './Pages/AppVendorPage'
+import ProductAppPage from "./Pages/AppProductPage";
+
+//
 import HomePage from './Pages/Home';
+import ProductsPage from './Pages/CustomerPages/ProductsPage'
+import CategoryPage from './Pages/CustomerPages/CategoryPage';
+import GuestProductDetail from './Pages/GuestPages/GuestProductDetail';
 import PackagesPage from './Pages/Packages';
 import CustomizePage from './Pages/CustomizePage';
 import CheckoutPage from './Pages/CheckoutPage';
@@ -132,7 +144,7 @@ const PublicLayout = ({ children }) => {
   
   return (
     <>
-      <Header />
+      <Navbar />
       <main className="min-h-screen">
         {children}
       </main>
@@ -156,6 +168,8 @@ function App() {
 
   return (
     <Router>
+      <AuthProvider>
+        <CartProvider>
       <ScrollToTop />
       <div className="App">
         <ToastContainer position="top-right" autoClose={3000} />
@@ -164,8 +178,31 @@ function App() {
           {/* Public Routes */}
           <Route path="/" element={
             
-              <HomePage />
+              <GuestHome />
             
+          } />
+
+          <Route path="/category/:category" element={
+            <PublicLayout>
+              <CategoryPage />
+            </PublicLayout>
+          } />
+
+          <Route path="/products" element={
+            <PublicLayout>
+              <ProductsPage />
+            </PublicLayout>
+          } />
+
+          <Route path="/product/:productId" element={
+            <PublicLayout>
+              <ProductAppPage/>
+            </PublicLayout>
+          } />
+          <Route path="/vendor/:vendorId" element={
+            <PublicLayout>
+              <VendorAppPage/>
+            </PublicLayout>
           } />
           
           <Route path="/packages" element={
@@ -372,6 +409,8 @@ function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </div>
+      </CartProvider>
+      </AuthProvider>
     </Router>
   );
 }
