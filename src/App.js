@@ -199,6 +199,11 @@ function App() {
               <ProductAppPage/>
             </PublicLayout>
           } />
+          <Route path="/g/product/:productId" element={
+            <PublicLayout>
+              <ProductAppPage/>
+            </PublicLayout>
+          } />
           <Route path="/vendor/:vendorId" element={
             <PublicLayout>
               <VendorAppPage/>
