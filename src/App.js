@@ -10,22 +10,13 @@ import Footer from './Components/Footer';
 import { AuthProvider } from './context/AuthContext';
 import { CartProvider } from './context/CartContext';
 
-// Guest Screens
-import GuestHome from './Pages/GuestPages/GuestHomePage';
+
 import VendorAppPage from './Pages/AppVendorPage'
 import ProductAppPage from "./Pages/AppProductPage";
 
 //
 import HomePage from './Pages/Home';
-import ProductsPage from './Pages/CustomerPages/ProductsPage'
-import CategoryPage from './Pages/CustomerPages/CategoryPage';
-import GuestProductDetail from './Pages/GuestPages/GuestProductDetail';
-import PackagesPage from './Pages/Packages';
-import CustomizePage from './Pages/CustomizePage';
-import CheckoutPage from './Pages/CheckoutPage';
-import ContactPage from './Pages/ContactPage';
-import OrderSuccess from './Pages/OrderSuccess';
-import ScrollToTop from './Components/ScrollToTop';
+
 
 import ProductAddForm from './AdminPages/ProductAddForm'
 import PackageAddForm from './AdminPages/PackageAddForm'
@@ -155,16 +146,8 @@ const PublicLayout = ({ children }) => {
 
 // Main App Component
 function App() {
-  const [basket, setBasket] = useState({
-    plan: null,
-    items: [],
-    total: 0
-  });
 
-  const updateBasket = (plan, items) => {
-    const total = items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-    setBasket({ plan, items, total });
-  };
+ 
 
   return (
     <Router>
@@ -178,22 +161,13 @@ function App() {
           {/* Public Routes */}
           <Route path="/" element={
             
-              <GuestHome />
+              <HomePage />
             
           } />
 
-          <Route path="/category/:category" element={
-            <PublicLayout>
-              <CategoryPage />
-            </PublicLayout>
-          } />
+         
 
-          <Route path="/products" element={
-            <PublicLayout>
-              <ProductsPage />
-            </PublicLayout>
-          } />
-
+          
           <Route path="/product/:productId" element={
             <PublicLayout>
               <ProductAppPage/>
@@ -210,23 +184,11 @@ function App() {
             </PublicLayout>
           } />
           
-          <Route path="/packages" element={
-            <PublicLayout>
-              <PackagesPage />
-            </PublicLayout>
-          } />
           
-          <Route path="/customize" element={
-            <PublicLayout>
-              <CustomizePage />
-            </PublicLayout>
-          } />
           
-          <Route path="/checkout" element={
-            <PublicLayout>
-              <CheckoutPage />
-            </PublicLayout>
-          } />
+          
+          
+          
           
           <Route path="/contact" element={
             <PublicLayout>
@@ -234,12 +196,7 @@ function App() {
             </PublicLayout>
           } />
           
-          <Route path="/order-success" element={
-            <PublicLayout>
-              <OrderSuccess />
-            </PublicLayout>
-          } />
-
+          
           {/* Authentication Routes */}
           <Route path="/admin/login" element={<AdminLogin />} />
           <Route path="/unauthorized" element={<UnauthorizedPage />} />
