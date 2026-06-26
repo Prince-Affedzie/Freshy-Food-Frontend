@@ -2,43 +2,100 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <link rel="icon" href="%PUBLIC_URL%/FreshyFoodFactoryLogo.png" />
+    <link rel="icon" href="%PUBLIC_URL%/cedimart_logo.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#000000" />
-   <meta
-  name="description"
-  content="CediMart delivers fresh weekly food baskets—vegetables, fruits, and tubers—sourced directly from trusted local farmers. Choose a basket plan, customize your items, and enjoy clean, affordable, stress-free food delivery to your doorstep."
-/>
+    <meta name="theme-color" content="#16A34A" />
+    
+    <!-- Primary Meta Tags -->
+    <title>CediMart — Ghana's #1 Student Marketplace | Buy & Sell on Campus</title>
+    <meta name="title" content="CediMart — Ghana's #1 Student Marketplace | Buy & Sell on Campus" />
+    <meta
+      name="description"
+      content="CediMart is Ghana's modern student marketplace. Buy textbooks, electronics, fashion, and hostel essentials from verified student sellers on your campus. Or start selling to earn while you learn — safe, fast, and completely free."
+    />
+    <meta name="keywords" content="CediMart, student marketplace, buy and sell Ghana, campus marketplace, university marketplace, student vendors, Ghana marketplace, buy textbooks Ghana, sell on campus, student business Ghana" />
+    <meta name="author" content="CediMart" />
+    <meta name="robots" content="index, follow" />
+    <meta name="language" content="English" />
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://cedimart.app" />
+    <meta property="og:title" content="CediMart — Ghana's #1 Student Marketplace | Buy & Sell on Campus" />
+    <meta property="og:description" content="Buy textbooks, electronics, fashion, and hostel essentials from verified student sellers on your campus. Safe, fast, and free." />
+    <meta property="og:image" content="%PUBLIC_URL%/cedimart_og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:site_name" content="CediMart" />
+    <meta property="og:locale" content="en_GH" />
 
-    <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
-    <!--
-      manifest.json provides metadata used when your web app is installed on a
-      user's mobile device or desktop. See https://developers.google.com/web/fundamentals/web-app-manifest/
-    -->
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image" />
+    <meta property="twitter:url" content="https://cedimart.app" />
+    <meta property="twitter:title" content="CediMart — Ghana's #1 Student Marketplace | Buy & Sell on Campus" />
+    <meta property="twitter:description" content="Buy textbooks, electronics, fashion, and hostel essentials from verified student sellers on your campus. Safe, fast, and free." />
+    <meta property="twitter:image" content="%PUBLIC_URL%/cedimart_og.png" />
+
+    <!-- Canonical URL -->
+    <link rel="canonical" href="https://cedimart.app" />
+
+    <!-- Apple Touch Icon -->
+    <link rel="apple-touch-icon" href="%PUBLIC_URL%/cedimart_logo.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="%PUBLIC_URL%/cedimart_logo_180.png" />
+
+    <!-- Manifest -->
     <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
-    <!--
-      Notice the use of %PUBLIC_URL% in the tags above.
-      It will be replaced with the URL of the `public` folder during the build.
-      Only files inside the `public` folder can be referenced from the HTML.
 
-      Unlike "/favicon.ico" or "favicon.ico", "%PUBLIC_URL%/favicon.ico" will
-      work correctly both with client-side routing and a non-root public URL.
-      Learn how to configure a non-root public URL by running `npm run build`.
+    <!-- Preconnect to external domains -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preconnect" href="https://res.cloudinary.com" />
+
+    <!-- DNS Prefetch -->
+    <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
+    <link rel="dns-prefetch" href="https://res.cloudinary.com" />
+
+    <!-- Structured Data / JSON-LD -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "Organization",
+        "name": "CediMart",
+        "url": "https://cedimart.app",
+        "logo": "https://cedimart.app/cedimart_logo.png",
+        "description": "Ghana's #1 student marketplace — buy and sell on campus.",
+        "sameAs": [
+          "https://twitter.com/cedimart",
+          "https://instagram.com/cedimart",
+          "https://linkedin.com/company/cedimart"
+        ],
+        "contactPoint": {
+          "@type": "ContactPoint",
+          "telephone": "+233505671577",
+          "contactType": "customer service",
+          "email": "hello@cedimart.app"
+        },
+        "address": {
+          "@type": "PostalAddress",
+          "addressLocality": "Accra",
+          "addressCountry": "GH"
+        }
+      }
+    </script>
+
+    <!-- Google Analytics (replace with your actual ID) -->
+    <!--
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-XXXXXXXXXX');
+    </script>
     -->
-    <title>CediMart</title>
   </head>
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>
     <div id="root"></div>
-    <!--
-      This HTML file is a template.
-      If you open it directly in the browser, you will see an empty page.
-
-      You can add webfonts, meta tags, or analytics to this file.
-      The build step will place the bundled scripts into the <body> tag.
-
-      To begin the development, run `npm start` or `yarn start`.
-      To create a production bundle, use `npm run build` or `yarn build`.
-    -->
   </body>
 </html>

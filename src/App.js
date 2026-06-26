@@ -16,6 +16,8 @@ import ProductAppPage from "./Pages/AppProductPage";
 
 //
 import HomePage from './Pages/Home';
+import ScrollToTop from './Components/ScrollToTop'
+import ContactPage from './Pages/ContactPage'
 
 
 import ProductAddForm from './AdminPages/ProductAddForm'
