@@ -196,8 +196,8 @@ const ProductAppPage = () => {
           <a href="/" style={s.primaryBtn}>Browse CediMart</a>
           <div style={s.storeLinksWrap}>
             <p style={s.storeLinksLabel}>Get the app</p>
-            <a href="https://apps.apple.com/app/cedimart" style={s.storeBtn}>📱 App Store</a>
-            <a href="https://play.google.com/store/apps/details?id=com.cedimart" style={s.storeBtnSecondary}>📱 Google Play</a>
+            <a href="https://apps.apple.com/us/app/cedimart/id6762318566" style={s.storeBtn}>📱 App Store</a>
+            <a href="https://play.google.com/store/apps/details?id=com.freshyfood.factory" style={s.storeBtnSecondary}>📱 Google Play</a>
           </div>
         </div>
       </div>
@@ -464,10 +464,10 @@ const ProductAppPage = () => {
             <button onClick={handleOpenApp} style={s.primaryCTA}>Open in App</button>
             <p style={s.getAppOrDivider}>Don't have the app?</p>
             <div style={s.storeRow}>
-              <a href="https://apps.apple.com/app/cedimart" style={s.storeBtn}>
+              <a href="https://apps.apple.com/us/app/cedimart/id6762318566" style={s.storeBtn}>
                 <span>🍎</span> App Store
               </a>
-              <a href="https://play.google.com/store/apps/details?id=com.cedimart" style={s.storeBtnSecondary}>
+              <a href="https://play.google.com/store/apps/details?id=com.freshyfood.factory" style={s.storeBtnSecondary}>
                 <span>▶</span> Google Play
               </a>
             </div>
