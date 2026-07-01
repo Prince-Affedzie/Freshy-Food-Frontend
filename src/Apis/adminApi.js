@@ -152,4 +152,7 @@ export const updateProduct =(id,formData)=>API.put(`/api/admin/product/${id}`,fo
       },
     })
 
+export const notifyUsersByRole = (data)=>API.post('/api/admin/notifications/role',data)
+export const broadCastNotification = (data)=>API.post('/api/admin/notifications/broadcast',data)
+
   
