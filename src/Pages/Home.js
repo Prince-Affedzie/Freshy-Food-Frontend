@@ -275,7 +275,7 @@ const HomePage = () => {
 
       {/* ════════════════════════ HERO ════════════════════════ */}
       <section id="home" className="relative" style={{ minHeight: "88vh", display: "flex", alignItems: "flex-end" }}>
-        <img src="https://images.unsplash.com/photo-1523240795612-9a054b0db644?w=1600&q=80" alt=""
+        <img src="https://res.cloudinary.com/duv3qvvjz/image/upload/v1783763724/cedimart_hero_image_1_lsoulz.png" alt=""
           style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", zIndex: 0 }}/>
         <div style={{ position: "absolute", inset: 0, background: "linear-gradient(0deg, rgba(11,61,46,0.82) 0%, rgba(11,61,46,0.25) 55%, rgba(11,61,46,0.05) 100%)", zIndex: 1 }}/>
 
@@ -350,7 +350,7 @@ const HomePage = () => {
 
       {/* ════════════════════════ MISSION ════════════════════════ */}
       <section id="how-it-works" className="relative" style={{ minHeight: 460, display: "flex", alignItems: "center" }}>
-        <img src="https://images.unsplash.com/photo-1523050854058-8df90110c9f1?w=1600&q=80" alt=""
+        <img src="https://res.cloudinary.com/duv3qvvjz/image/upload/v1783762781/cedimart_mission_section_image_1_oqxrne.png" alt=""
           style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}/>
         <div style={{ position: "absolute", inset: 0, background: "rgba(11,61,46,0.6)" }}/>
         <div style={{ maxWidth: 720, margin: "0 auto", padding: "0 48px", position: "relative", zIndex: 1, textAlign: "center" }}>
