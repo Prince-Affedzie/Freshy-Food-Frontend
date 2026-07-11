@@ -350,7 +350,7 @@ const HomePage = () => {
 
       {/* ════════════════════════ MISSION ════════════════════════ */}
       <section id="how-it-works" className="relative" style={{ minHeight: 460, display: "flex", alignItems: "center" }}>
-        <img src="https://res.cloudinary.com/duv3qvvjz/image/upload/v1783762781/cedimart_mission_section_image_1_oqxrne.png" alt=""
+        <img src="https://res.cloudinary.com/duv3qvvjz/image/upload/v1783766399/mission2_u79lil.jpg" alt=""
           style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}/>
         <div style={{ position: "absolute", inset: 0, background: "rgba(11,61,46,0.6)" }}/>
         <div style={{ maxWidth: 720, margin: "0 auto", padding: "0 48px", position: "relative", zIndex: 1, textAlign: "center" }}>
