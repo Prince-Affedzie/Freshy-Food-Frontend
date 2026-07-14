@@ -18,6 +18,7 @@ import ProductAppPage from "./Pages/AppProductPage";
 import HomePage from './Pages/Home';
 import ScrollToTop from './Components/ScrollToTop'
 import ContactPage from './Pages/ContactPage'
+import OrderConfirmationPage from './Pages/OrderConfirmation'
 
 
 import ProductAddForm from './AdminPages/ProductAddForm'
@@ -195,6 +196,12 @@ function App() {
           <Route path="/contact" element={
             <PublicLayout>
               <ContactPage />
+            </PublicLayout>
+          } />
+
+          <Route path="/order-confirmed" element={
+            <PublicLayout>
+              < OrderConfirmationPage />
             </PublicLayout>
           } />
           
