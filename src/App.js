@@ -47,6 +47,8 @@ import AddVendorPage from './AdminPages/AddVendor'
 import VendorListPage from './AdminPages/Vendors'
 import EditVendorPage from './AdminPages/EditVendor'
 import VendorDetailsPage from './AdminPages/VendorDetails'
+import ReferralListPage from './AdminPages/ReferralListPage'
+import ReferralDetailPage from './AdminPages/ReferralDetailPage'
 import LoadingSpinner from './Components/LoadingSpinner';
 
 import './styles.css';
@@ -373,6 +375,21 @@ function App() {
             </AdminRoute>
            
           } />
+
+          <Route path="/admin/referrals" element={
+            <AdminRoute>
+              <ReferralListPage/>
+            </AdminRoute>
+           
+          } />
+
+          <Route path="/admin/referral/:id" element={
+            <AdminRoute>
+              <ReferralDetailPage/>
+            </AdminRoute>
+           
+          } />
+
 
           {/* Fallback Routes */}
           <Route path="/admin" element={<Navigate to="/admin/login" replace />} />

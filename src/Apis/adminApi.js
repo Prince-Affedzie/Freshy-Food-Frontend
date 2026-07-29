@@ -154,5 +154,7 @@ export const updateProduct =(id,formData)=>API.put(`/api/admin/product/${id}`,fo
 
 export const notifyUsersByRole = (data)=>API.post('/api/admin/notifications/role',data)
 export const broadCastNotification = (data)=>API.post('/api/admin/notifications/broadcast',data)
-
+export const getAllReferrals =(params={})=>API.get('/api/admin/referrals',{ params })
+export const getReferralDetail=(id)=>API.get(`/api/admin/referrals/${id}`)
+export const getReferralStats =()=>API.get('/api/admin/referrals/stats')
   

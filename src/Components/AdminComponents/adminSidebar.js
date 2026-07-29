@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 
 // ─── Menu definition ──────────────────────────────────────────────────────────
+
 const MENU = [
   {
     id: 'dashboard',
@@ -39,6 +40,7 @@ const MENU = [
   { id: 'users',         title: 'Users',         icon: Users,    route: '/admin/users'         },
   { id: 'vendors',         title: 'Vendors',     icon: Users,    route: '/admin/vendors'         },
   { id: 'payments',      title: 'Payments',      icon: CreditCard, route: '/admin/payments'    },
+  { id: 'referrals',         title: 'Referrals',         icon: Users,    route: '/admin/referrals'         },
   //{ id: 'analytics',     title: 'Analytics',     icon: BarChart2, route: '/admin/analytics'   },
   { id: 'notifications', title: 'Notifications', icon: Bell,     route: '/admin/notifications' },
   //{ id: 'settings',      title: 'Settings',      icon: Settings, route: '/admin/settings'      },
